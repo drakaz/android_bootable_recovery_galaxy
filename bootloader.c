@@ -45,7 +45,7 @@ int get_bootloader_message(struct bootloader_message *out) {
     size_t write_size;
     const MtdPartition *part = get_root_mtd_partition(MISC_NAME);
     if (part == NULL || mtd_partition_info(part, NULL, NULL, &write_size)) {
-        LOGE("Can't find %s\n", MISC_NAME);
+//        LOGE("Can't find %s\n", MISC_NAME);
         return -1;
     }
 
@@ -76,7 +76,7 @@ int set_bootloader_message(const struct bootloader_message *in) {
     size_t write_size;
     const MtdPartition *part = get_root_mtd_partition(MISC_NAME);
     if (part == NULL || mtd_partition_info(part, NULL, NULL, &write_size)) {
-        LOGE("Can't find %s\n", MISC_NAME);
+//        LOGE("Can't find %s\n", MISC_NAME);
         return -1;
     }
 

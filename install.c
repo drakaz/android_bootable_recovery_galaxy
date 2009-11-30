@@ -35,9 +35,13 @@
 #include "verifier.h"
 #include "firmware.h"
 
+/* List of public keys */
+static const RSAPublicKey keys[] = {
+#include "keys.inc"
+};
+
 #define ASSUMED_UPDATE_SCRIPT_NAME  "META-INF/com/google/android/update-script"
 #define ASSUMED_UPDATE_BINARY_NAME  "META-INF/com/google/android/update-binary"
-#define PUBLIC_KEYS_FILE "/res/keys"
 
 static const ZipEntry *
 find_update_script(ZipArchive *zip)
@@ -313,8 +317,7 @@ try_update_binary(const char *path, ZipArchive *zip) {
 }
 
 static int
-handle_update_package(const char *path, ZipArchive *zip,
-                      const RSAPublicKey *keys, int numKeys)
+handle_update_package(const char *path, ZipArchive *zip)
 {
     // Give verification half the progress bar...
     ui_print("Verifying update package...\n");
@@ -322,7 +325,7 @@ handle_update_package(const char *path, ZipArchive *zip,
             VERIFICATION_PROGRESS_FRACTION,
             VERIFICATION_PROGRESS_TIME);
 
-    if (!verify_jar_signature(zip, keys, numKeys)) {
+    if (!verify_jar_signature(zip, keys, sizeof(keys) / sizeof(keys[0]))) {
         LOGE("Verification failed\n");
         return INSTALL_CORRUPT;
     }
@@ -357,80 +360,6 @@ handle_update_package(const char *path, ZipArchive *zip,
     return ret;
 }
 
-// Reads a file containing one or more public keys as produced by
-// DumpPublicKey:  this is an RSAPublicKey struct as it would appear
-// as a C source literal, eg:
-//
-//  "{64,0xc926ad21,{1795090719,...,-695002876},{-857949815,...,1175080310}}"
-//
-// (Note that the braces and commas in this example are actual
-// characters the parser expects to find in the file; the ellipses
-// indicate more numbers omitted from this example.)
-//
-// The file may contain multiple keys in this format, separated by
-// commas.  The last key must not be followed by a comma.
-//
-// Returns NULL if the file failed to parse, or if it contain zero keys.
-static RSAPublicKey*
-load_keys(const char* filename, int* numKeys) {
-    RSAPublicKey* out = NULL;
-    *numKeys = 0;
-
-    FILE* f = fopen(filename, "r");
-    if (f == NULL) {
-        LOGE("opening %s: %s\n", filename, strerror(errno));
-        goto exit;
-    }
-
-    int i;
-    bool done = false;
-    while (!done) {
-        ++*numKeys;
-        out = realloc(out, *numKeys * sizeof(RSAPublicKey));
-        RSAPublicKey* key = out + (*numKeys - 1);
-        if (fscanf(f, " { %i , %i , { %i",
-                   &(key->len), &(key->n0inv), &(key->n[0])) != 3) {
-            goto exit;
-        }
-        if (key->len != RSANUMWORDS) {
-            LOGE("key length (%d) does not match expected size\n", key->len);
-            goto exit;
-        }
-        for (i = 1; i < key->len; ++i) {
-            if (fscanf(f, " , %i", &(key->n[i])) != 1) goto exit;
-        }
-        if (fscanf(f, " } , { %i", &(key->rr[0])) != 1) goto exit;
-        for (i = 1; i < key->len; ++i) {
-            if (fscanf(f, " , %i", &(key->rr[i])) != 1) goto exit;
-        }
-        fscanf(f, " } } ");
-
-        // if the line ends in a comma, this file has more keys.
-        switch (fgetc(f)) {
-            case ',':
-                // more keys to come.
-                break;
-
-            case EOF:
-                done = true;
-                break;
-
-            default:
-                LOGE("unexpected character between keys\n");
-                goto exit;
-        }
-    }
-
-    fclose(f);
-    return out;
-
-exit:
-    if (f) fclose(f);
-    free(out);
-    *numKeys = 0;
-    return NULL;
-}
-
 int
 install_package(const char *root_path)
 {
@@ -453,14 +382,6 @@ install_package(const char *root_path)
     ui_print("Opening update package...\n");
     LOGI("Update file path: %s\n", path);
 
-    int numKeys;
-    RSAPublicKey* loadedKeys = load_keys(PUBLIC_KEYS_FILE, &numKeys);
-    if (loadedKeys == NULL) {
-        LOGE("Failed to load keys\n");
-        return INSTALL_CORRUPT;
-    }
-    LOGI("%d key(s) loaded from %s\n", numKeys, PUBLIC_KEYS_FILE);
-
     /* Try to open the package.
      */
     ZipArchive zip;
@@ -472,8 +393,25 @@ install_package(const char *root_path)
 
     /* Verify and install the contents of the package.
      */
-    int status = handle_update_package(path, &zip, loadedKeys, numKeys);
+    int status = handle_update_package(path, &zip);
     mzCloseZipArchive(&zip);
-    free(loadedKeys);
+
+    // Sync /data because of ext3 fs
+    ui_print("Sync data...\n");
+    pid_t pidsync = fork();
+    if (pidsync == 0) {
+	char *args[] = {"/sbin/busybox", "sync", NULL};
+	execv("/sbin/busybox", args);
+        fprintf(stderr, "Unable to sync /data\n(%s)\n", strerror(errno));
+        _exit(-1);
+    }
+    int statussync;
+    while (waitpid(pidsync, &statussync, WNOHANG) == 0) {
+    ui_print(".");
+    sleep(1);
+                    }
+
+
+
     return status;
 }

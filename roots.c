@@ -19,6 +19,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "mtdutils/mtdutils.h"
@@ -26,6 +27,21 @@
 #include "minzip/Zip.h"
 #include "roots.h"
 #include "common.h"
+
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <cutils/config_utils.h>
+#include <cutils/log.h>
+
+
+
+// ADDORDEL : emplacement du binaire mk2fs
+#define MKE2FS_BIN  "/tmp/RECTOOLS/mke2fs"
 
 typedef struct {
     const char *name;
@@ -46,17 +62,20 @@ static const char g_package_file[] = "@\0g_package_file";
 static RootInfo g_roots[] = {
     { "BOOT:", g_mtd_device, NULL, "boot", NULL, g_raw },
     { "CACHE:", g_mtd_device, NULL, "cache", "/cache", "yaffs2" },
-    { "DATA:", g_mtd_device, NULL, "userdata", "/data", "yaffs2" },
-    { "MISC:", g_mtd_device, NULL, "misc", NULL, g_raw },
+    { "DATA:", g_mtd_device, NULL, "userdata", "/userdata", "yaffs2" },
+    { "DBDATA:", g_mtd_device, NULL, "dbdata", "/dbdata", "yaffs2" },
     { "PACKAGE:", NULL, NULL, NULL, NULL, g_package_file },
     { "RECOVERY:", g_mtd_device, NULL, "recovery", "/", g_raw },
-    { "SDCARD:", "/dev/block/mmcblk0p1", "/dev/block/mmcblk0", NULL, "/sdcard", "vfat" },
+// drakaz : ajout de la memoire interne et modif de la sd en mmcblk0p2
+    { "INTERNAL:", "/dev/block/mmcblk0p1", NULL, "data",  "/data", "ext3" },
+    { "SDCARD:", "/dev/block/mmcblk0p2", NULL, "sdcard", "/sdcard", "vfat" },
     { "SYSTEM:", g_mtd_device, NULL, "system", "/system", "yaffs2" },
     { "TMP:", NULL, NULL, NULL, "/tmp", NULL },
 };
 #define NUM_ROOTS (sizeof(g_roots) / sizeof(g_roots[0]))
 
 // TODO: for SDCARD:, try /dev/block/mmcblk0 if mmcblk0p1 fails
+
 
 static const RootInfo *
 get_root_info_for_path(const char *root_path)
@@ -338,6 +357,8 @@ format_root_device(const char *root)
 
     /* Format the device.
      */
+
+
     if (info->device == g_mtd_device) {
         mtd_scan_partitions();
         const MtdPartition *partition;
@@ -362,9 +383,39 @@ format_root_device(const char *root)
             } else {
                 return 0;
             }
-        }
+        }		
     }
+
+// drakaz : ajout du support du formattage de la partition ext3 data propre au galaxy
+LOGW("Data partition info : FS : \"%s\", Name : \"%s\"\n", info->filesystem, info->partition_name );
+	if ( !strcmp(info->partition_name,"data")) {
+		int format_data_galaxy;
+		format_data_galaxy == 0;
+   		pid_t pid_format = fork();
+		if (pid_format == 0) {
+			// EXT3 Journalisation
+			char *journal_opts;
+			journal_opts = "-j";
+			char *args_format[] = { MKE2FS_BIN, "-L", "data", journal_opts, "/dev/block/mmcblk0p1", NULL };
+			execv(MKE2FS_BIN, args_format);
+                        fprintf(stderr, "format_root_device: can't format data partition  \"%s\"\n", strerror(errno));
+			format_data_galaxy == 1;
+                        _exit(-1);
+                    }
+		int format_status;
+                while (waitpid(pid_format, &format_status, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+		if (format_data_galaxy == 0) {
+			return 0;
+		} else {
+			LOGW("format_root_device: can't format data partition  \"%s\"\n", root);
+			return -1;
+		}
+	}
+
 //TODO: handle other device types (sdcard, etc.)
-    LOGW("format_root_device: can't handle non-mtd device \"%s\"\n", root);
-    return -1;
+//    LOGW("format_root_device: can't handle non-mtd device \"%s\"\n", root);
+//    return -1;
 }
