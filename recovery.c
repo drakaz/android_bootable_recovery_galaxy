@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -53,7 +54,9 @@ static const char *INTENT_FILE = "CACHE:recovery/intent";
 static const char *LOG_FILE = "CACHE:recovery/log";
 static const char *SDCARD_PACKAGE_FILE = "SDCARD:update.zip";
 static const char *SDCARD_PATH = "SDCARD:";
-#define SDCARD_PATH_LENGTH 7
+static const char *THEMES_PATH = "THEMES:";
+#define SDCARD_PATH_LENGTH 20
+#define THEMES_PATH_LENGTH 20
 static const char *TEMPORARY_LOG_FILE = "/tmp/recovery.log";
 
 /*
@@ -445,6 +448,169 @@ out:
 }
 
 static void
+choose_theme_file()
+{
+    static char* headers[] = { "Choose theme ZIP file",
+                               "",
+                               "Use up/down to highlight;",
+                               "click OK to select.",
+                               "",
+                               NULL };
+
+// Mount system partition
+    ui_print("\nRemounting system partition in rw..");
+    pid_t pidtheme1 = fork();
+    if (pidtheme1 == 0) {
+	char *argstheme1[] = { "mount", "/system", NULL };
+	execv("/sbin/busybox", argstheme1);
+        fprintf(stderr, "Can't mount %s\n(%s)\n", SYSTEME_PART, strerror(errno));
+        _exit(-1);
+    }
+    int statustheme1;
+    while (waitpid(pidtheme1, &statustheme1, WNOHANG) == 0) {
+    ui_print(".");
+    sleep(1);
+    }
+                            
+// Remount system partition in rw
+    pid_t pidtheme2 = fork();
+    if (pidtheme2 == 0) {
+	char *argstheme2[] = { "mount", "-o", "remount,rw", SYSTEME_PART, "/system", NULL };
+	execv("/sbin/busybox", argstheme2);
+        fprintf(stderr, "Can't remount %s\n(%s) in rw\n", SYSTEME_PART, strerror(errno));
+        _exit(-1);
+    }
+    int statustheme2;
+    while (waitpid(pidtheme2, &statustheme2, WNOHANG) == 0) {
+    	ui_print(".");
+    	sleep(1);
+    }
+    ui_print("OK\n");
+
+    char path[PATH_MAX] = "";
+    DIR *dir;
+    struct dirent *de;
+    char **files;
+    int total = 0;
+    int i;
+
+    if (ensure_root_path_mounted(THEMES_PATH) != 0) {
+        LOGE("Can't mount %s\n", THEMES_PATH);
+        return;
+    }
+
+    if (translate_root_path(THEMES_PATH, path, sizeof(path)) == NULL) {
+        LOGE("Bad path %s", path);
+        return;
+    }
+
+    dir = opendir(path);
+    if (dir == NULL) {
+        LOGE("Couldn't open directory %s", path);
+        return;
+    }
+
+    /* count how many files we're looking at */
+    while ((de = readdir(dir)) != NULL) {
+        char *extension = strrchr(de->d_name, '.');
+        if (extension == NULL || de->d_name[0] == '.') {
+            continue;
+        } else if (!strcasecmp(extension, ".zip")) {
+            total++;
+        }
+    }
+
+    /* allocate the array for the file list menu */
+    files = (char **) malloc((total + 1) * sizeof(*files));
+    files[total] = NULL;
+
+    /* set it up for the second pass */
+    rewinddir(dir);
+
+    /* put the names in the array for the menu */
+    i = 0;
+    while ((de = readdir(dir)) != NULL) {
+        char *extension = strrchr(de->d_name, '.');
+        if (extension == NULL || de->d_name[0] == '.') {
+            continue;
+        } else if (!strcasecmp(extension, ".zip")) {
+            files[i] = (char *) malloc(THEMES_PATH_LENGTH + strlen(de->d_name) + 1);
+            strcpy(files[i], THEMES_PATH);
+            strcat(files[i], de->d_name);
+            i++;
+        }
+    }
+
+    /* close directory handle */
+    if (closedir(dir) < 0) {
+        LOGE("Failure closing directory %s", path);
+        goto out;
+    }
+
+    ui_start_menu(headers, files);
+    int selected = 0;
+    int chosen_item = -1;
+
+    finish_recovery(NULL);
+    ui_reset_progress();
+    for (;;) {
+        int key = ui_wait_key();
+        int visible = ui_text_visible();
+
+        if (key == KEY_DREAM_BACK) {
+            break;
+        } else if ((key == KEY_DOWN || key == KEY_VOLUMEDOWN) && visible) {
+            ++selected;
+            selected = ui_menu_select(selected);
+        } else if ((key == KEY_UP || key == KEY_VOLUMEUP) && visible) {
+            --selected;
+            selected = ui_menu_select(selected);
+        } else if ((key == BTN_MOUSE || key == KEY_I7500_CENTER) && visible) {
+            chosen_item = selected;
+        }
+
+        if (chosen_item >= 0) {
+            // turn off the menu, letting ui_print() to scroll output
+            // on the screen.
+            ui_end_menu();
+
+            ui_print("\n-- Installing new theme!");
+            ui_print("\n-- Press HOME to confirm, or");
+            ui_print("\n-- any other key to abort..");
+            int confirm_apply = ui_wait_key();
+            if (confirm_apply == KEY_DREAM_HOME) {
+                ui_print("\n-- Install new theme from sdcard...\n");
+                int status = install_package(files[chosen_item]);
+                if (status != INSTALL_SUCCESS) {
+                    ui_set_background(BACKGROUND_ICON_ERROR);
+                    ui_print("Installation aborted.\n");
+                } else if (!ui_text_visible()) {
+                    break;  // reboot if logs aren't visible
+                } else {
+                    if (firmware_update_pending()) {
+                        ui_print("\nReboot via menu\n"
+                                 "to complete installation.\n");
+                    } else {
+                        ui_print("\nInstall new theme from sdcard complete.\n");
+                    }
+                }
+            } else {
+                ui_print("\nInstallation aborted.\n");
+            }
+            if (!ui_text_visible()) break;
+            break;
+        }
+    }
+
+out:
+
+    for (i = 0; i < total; i++) {
+        free(files[i]);
+    }
+    free(files);
+}
+
+static void
 prompt_and_wait()
 {
 // drakaz : new headers
@@ -458,21 +624,21 @@ prompt_and_wait()
 #define ITEM_REBOOT        0
 #define ITEM_APPLY_SDCARD  1
 #define ITEM_APPLY_UPDATE  2
-#define ITEM_GRESTORE	   3
-#define ITEM_LIBGL_RESTORE 4
+#define ITEM_APPLY_THEME   3
+#define ITEM_GRESTORE	   4
 #define UMS_ON	   	   5
 #define UMS_OFF		   6
 #define ITEM_NANDROID      7
 #define ITEM_RESTORE       8
-#define ITEM_DELETE	   9
-#define ITEM_SU_ON	   10
-#define ITEM_SU_OFF	   11
-#define ITEM_WIPE_DATA     12
-#define ITEM_FSCK          13
-#define CONVERT_DATA_EXT4  14
-#define ITEM_SD_SWAP_ON    15
-#define ITEM_SD_SWAP_OFF   16
-#define FIX_PERMS	   17
+#define ITEM_SU_ON	   9
+#define ITEM_SU_OFF	   10
+#define ITEM_WIPE_DATA     11
+#define ITEM_FSCK          12
+#define CONVERT_DATA_EXT4  13
+#define ITEM_SD_SWAP_ON    14
+#define ITEM_SD_SWAP_OFF   15
+#define FIX_PERMS	   16
+#define ITEM_DELETE	   17
 
 
 
@@ -480,13 +646,12 @@ prompt_and_wait()
     static char* items[] = { "Reboot system now",
                              "Apply sdcard:update.zip",
                              "Apply any zip from sd",
+			     "Apply a theme from sd",
 			     "Restore G.Apps",
-			     "Restore libhgl",
 			     "Mount SD(s) on PC",
 			     "Umount SD(s) from PC",
                              "Nandroid backup",
                              "Restore latest backup",
-			     "Delete oldest backup",
 			     "Enable root (su)",
 	                     "Disable root (su)",
 			     "Wipe data/factory reset",
@@ -495,6 +660,7 @@ prompt_and_wait()
 			     "Format ext. SD : swap+fat32",
                              "Format ext. SD : fat32",
 			     "Fix packages permissions",
+//			     "Delete oldest backup",
                              NULL };
 
     ui_start_menu(headers, items);
@@ -579,6 +745,11 @@ prompt_and_wait()
                     choose_update_file();
                     break;
 
+// Apply any theme from SD
+                case ITEM_APPLY_THEME:
+                    choose_theme_file();
+                    break;
+
 
 // drakaz : launch the shell script which restore Google applications and library from official Galaxy update
 // This script must be updated at each official update and new rom because of signature/md5
@@ -594,42 +765,6 @@ prompt_and_wait()
 			char *args[] = { "/sbin/sh", "/tmp/RECTOOLS/gfiles.sh", "oneinall", NULL };
 			execv("/sbin/sh", args);
                         fprintf(stderr, "Unable to start the restore script\n(%s)\n", strerror(errno));
-                        _exit(-1);
-                    }
-                    int fsck_status;
-                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
-                        ui_print(".");
-                        sleep(1);
-                    }
-		    sync();
-		    if (!WIFEXITED(fsck_status) || (WEXITSTATUS(fsck_status) != 0)) {		  		
-			ui_print("\nRestore aborted : see /tmp/recovery.log\n");
-                    } else {
-                        ui_print("\nRestore completed\n");
-                    }
-
-		    sync();
-
-                    if (!ui_text_visible()) {
-			return;
-		    }
-	            }
-		    break;
-
-// drakaz : launch the shell script which restore the libhgl on Galaxy from HTC ION rom
-// The script must be updated at each new HTC ION rom because of md5
-		case ITEM_LIBGL_RESTORE:
-		    ui_print("\n-- Restore libhgl from HTC ION rom");
-		    ui_print("\n-- Press HOME to confirm, or");
-                    ui_print("\n-- any other key to abort..");
- 		    int confirm_libhglrestore = ui_wait_key();
-                    if (confirm_libhglrestore == KEY_DREAM_HOME) {
- 		    	ui_print("\n-- Restore started...\n");
-			pid_t pidf = fork();
-                    if (pidf == 0) {
-			char *args[] = { "/sbin/sh", "/tmp/RECTOOLS/hgl.sh", NULL };
-			execv("/sbin/sh", args);
-                        fprintf(stderr, "Unable to start the hgl restore script\n(%s)\n", strerror(errno));
                         _exit(-1);
                     }
                     int fsck_status;

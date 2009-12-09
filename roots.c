@@ -69,6 +69,7 @@ static RootInfo g_roots[] = {
 // drakaz : ajout de la memoire interne et modif de la sd en mmcblk0p2
     { "INTERNAL:", "/dev/block/mmcblk0p1", NULL, "data",  "/data", "ext3" },
     { "SDCARD:", "/dev/block/mmcblk0p2", NULL, "sdcard", "/sdcard", "vfat" },
+    { "THEMES:", "/dev/block/mmcblk0p2", NULL, "themes", "/themes", "vfat" },
     { "SYSTEM:", g_mtd_device, NULL, "system", "/system", "yaffs2" },
     { "TMP:", NULL, NULL, NULL, "/tmp", NULL },
 };
@@ -265,18 +266,22 @@ ensure_root_path_mounted(const char *root_path)
         return -1;
     }
 
-    mkdir(info->mount_point, 0755);  // in case it doesn't already exist
-    if (mount(info->device, info->mount_point, info->filesystem,
-            MS_NOATIME | MS_NODEV | MS_NODIRATIME, "")) {
-        if (info->device2 == NULL) {
-            LOGE("Can't mount %s\n(%s)\n", info->device, strerror(errno));
-            return -1;
-        } else if (mount(info->device2, info->mount_point, info->filesystem,
-                MS_NOATIME | MS_NODEV | MS_NODIRATIME, "")) {
-            LOGE("Can't mount %s (or %s)\n(%s)\n",
-                    info->device, info->device2, strerror(errno));
-            return -1;
-        }
+// drakaz : don't mount pseudo partition themes
+    if (strcmp(info->partition_name,"themes")) {
+	    mkdir(info->mount_point, 0755);  // in case it doesn't already exist
+	    if (mount(info->device, info->mount_point, info->filesystem,
+		    MS_NOATIME | MS_NODEV | MS_NODIRATIME, "")) {
+		if (info->device2 == NULL) {
+		    LOGE("Can't mount %s\n(%s)\n", info->device, strerror(errno));
+		    return -1;
+		} else if (mount(info->device2, info->mount_point, info->filesystem,
+		        MS_NOATIME | MS_NODEV | MS_NODIRATIME, "")) {
+		    LOGE("Can't mount %s (or %s)\n(%s)\n",
+		            info->device, info->device2, strerror(errno));
+		    return -1;
+		}
+	    }
+	    return 0;
     }
     return 0;
 }
@@ -418,4 +423,5 @@ LOGW("Data partition info : FS : \"%s\", Name : \"%s\"\n", info->filesystem, inf
 //TODO: handle other device types (sdcard, etc.)
 //    LOGW("format_root_device: can't handle non-mtd device \"%s\"\n", root);
 //    return -1;
+return 0;
 }
