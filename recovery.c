@@ -57,7 +57,7 @@ static const char *SDCARD_PATH = "SDCARD:";
 static const char *THEMES_PATH = "THEMES:";
 #define SDCARD_PATH_LENGTH 20
 #define THEMES_PATH_LENGTH 20
-static const char *TEMPORARY_LOG_FILE = "/tmp/recovery.log";
+static const char *TEMPORARY_LOG_FILE = "/sdcard/recovery.log";
 
 /*
  * The recovery tool communicates with the main system through /cache files.
@@ -128,6 +128,7 @@ static int do_reboot = 1;
 #define E2FSCK_BIN "/tmp/RECTOOLS/e2fsck"
 #define SDTOOLS "/tmp/RECTOOLS/sdtools.sh"
 #define FIX_PERMS_BIN "/tmp/RECTOOLS/fix_permissions.sh"
+#define BACKUP_DATA_BIN "/tmp/RECTOOLS/backupdata.sh"
 
 // Pour emulateur..
 //#define SYSTEME_PART "/dev/block/mtdblock0"
@@ -320,7 +321,7 @@ choose_update_file()
     static char* headers[] = { "Choose update ZIP file",
                                "",
                                "Use up/down to highlight;",
-                               "click OK to select.",
+                               "OK to select",
                                "",
                                NULL };
 
@@ -413,26 +414,26 @@ choose_update_file()
 
             ui_print("\n-- Installing new image!");
             ui_print("\n-- Press HOME to confirm, or");
-            ui_print("\n-- any other key to abort..");
+            ui_print("\n-- any other key to abort\n\n");
             int confirm_apply = ui_wait_key();
             if (confirm_apply == KEY_DREAM_HOME) {
-                ui_print("\n-- Install from sdcard...\n");
+                ui_print("\nInstalling from sdcard...\n");
                 int status = install_package(files[chosen_item]);
                 if (status != INSTALL_SUCCESS) {
                     ui_set_background(BACKGROUND_ICON_ERROR);
-                    ui_print("Installation aborted.\n");
+                    ui_print("Installation failed\n");
                 } else if (!ui_text_visible()) {
                     break;  // reboot if logs aren't visible
                 } else {
                     if (firmware_update_pending()) {
-                        ui_print("\nReboot via menu\n"
-                                 "to complete installation.\n");
+                        ui_print("\nReboot\n"
+                                 "to complete installation\n");
                     } else {
-                        ui_print("\nInstall from sdcard complete.\n");
+                        ui_print("\nInstall from sdcard complete\n");
                     }
                 }
             } else {
-                ui_print("\nInstallation aborted.\n");
+                ui_print("\nInstallation failed");
             }
             if (!ui_text_visible()) break;
             break;
@@ -626,19 +627,23 @@ prompt_and_wait()
 #define ITEM_APPLY_UPDATE  2
 #define ITEM_APPLY_THEME   3
 #define ITEM_GRESTORE	   4
-#define UMS_ON	   	   5
-#define UMS_OFF		   6
-#define ITEM_NANDROID      7
-#define ITEM_RESTORE       8
-#define ITEM_SU_ON	   9
-#define ITEM_SU_OFF	   10
-#define ITEM_WIPE_DATA     11
-#define ITEM_FSCK          12
-#define CONVERT_DATA_EXT4  13
-#define ITEM_SD_SWAP_ON    14
-#define ITEM_SD_SWAP_OFF   15
-#define FIX_PERMS	   16
-#define ITEM_DELETE	   17
+#define ITEM_LIBHGL	   5
+#define UMS_ON	   	   6
+#define UMS_OFF		   7
+#define ITEM_BACKUP_DATA   8
+#define ITEM_RESTORE_DATA  9
+#define ITEM_NANDROID      10
+#define ITEM_RESTORE       11
+#define ITEM_SU_ON	   12
+#define ITEM_SU_OFF	   13
+#define ITEM_WIPE_DATA     14
+#define ITEM_FSCK          15
+#define ITEM_SD_SWAP_ON    16
+#define ITEM_SD_SWAP_OFF   17
+#define FIX_PERMS	   18
+#define ITEM_DELETE	   19
+#define CONVERT_DATA_EXT4  20
+
 
 
 
@@ -648,15 +653,17 @@ prompt_and_wait()
                              "Apply any zip from sd",
 			     "Apply a theme from sd",
 			     "Restore G.Apps",
+			     "Restore libhgl",
 			     "Mount SD(s) on PC",
 			     "Umount SD(s) from PC",
+			     "Backup market+sms/mms db",
+			     "Restore market+sms/mms db",
                              "Nandroid backup",
                              "Restore latest backup",
 			     "Enable root (su)",
 	                     "Disable root (su)",
 			     "Wipe data/factory reset",
 			     "Check ext3 filesystem on /data",
-			     "Convert/check /data to ext4dev",
 			     "Format ext. SD : swap+fat32",
                              "Format ext. SD : fat32",
 			     "Fix packages permissions",
@@ -786,6 +793,41 @@ prompt_and_wait()
 		    }
 	            }
 		    break;
+
+
+		case ITEM_LIBHGL:
+		    ui_print("\n-- Restoring libhgl from HTC update");
+		    ui_print("\n-- Press HOME to confirm, or");
+                    ui_print("\n-- any other key to abort..");
+ 		    int confirm_libhgl = ui_wait_key();
+                    if (confirm_libhgl == KEY_DREAM_HOME) {
+ 		    	ui_print("\n-- Restore started...\n");
+			pid_t pidf = fork();
+                    if (pidf == 0) {
+			char *args[] = { "/sbin/sh", "/tmp/RECTOOLS/hgl.sh", NULL };
+			execv("/sbin/sh", args);
+                        fprintf(stderr, "Unable to start the restore script\n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int fsck_status;
+                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+		    sync();
+		    if (!WIFEXITED(fsck_status) || (WEXITSTATUS(fsck_status) != 0)) {		  		
+			ui_print("\nRestore aborted : see /tmp/recovery.log\n");
+                    } else {
+                        ui_print("\nRestore completed\n");
+                    }
+
+		    sync();
+
+                    if (!ui_text_visible()) {
+			return;
+		    }
+	            }
+		    break;
 		    
 
 // drakaz : mount internal and external SD as mass storage device in recovery mode
@@ -834,6 +876,66 @@ prompt_and_wait()
                     if (!ui_text_visible()) return;
                     break;	
 
+// drakaz : launch data backup script
+	    	case ITEM_BACKUP_DATA:
+                    if (ensure_root_path_mounted("SDCARD:") != 0) {
+                        ui_print("\nCan't mount sdcard\n");
+                    } else {
+                        ui_print("\nPerforming app data backup");
+                        pid_t pid = fork();
+                        if (pid == 0) {
+                            char *args[] = {"/sbin/sh", BACKUP_DATA_BIN, "backup", NULL};
+                            execv("/sbin/sh", args);
+                            fprintf(stderr, "E:Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
+                            _exit(-1);
+                        }
+
+                        int status;
+
+                        while (waitpid(pid, &status, WNOHANG) == 0) {
+                            ui_print(".");
+                            sleep(1);
+                        }
+                        ui_print("\n");
+
+                        if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+                             ui_print("\nError running data backup. Backup not performed.\n\n");
+                        } else {
+                             ui_print("\nBackup complete!\n\n");
+                        }
+                    }
+                    break;
+
+// drakaz : launch data restore script
+	    	case ITEM_RESTORE_DATA:
+                    if (ensure_root_path_mounted("SDCARD:") != 0) {
+                        ui_print("\nCan't mount sdcard\n");
+                    } else {
+                        ui_print("\nPerforming app data restore");
+                        pid_t pid = fork();
+                        if (pid == 0) {
+                            char *args[] = {"/sbin/sh", BACKUP_DATA_BIN, "restore", NULL};
+                            execv("/sbin/sh", args);
+                            fprintf(stderr, "E:Can't run %s\n(%s)\n", BACKUP_DATA_BIN, strerror(errno));
+                            _exit(-1);
+                        }
+
+                        int status;
+
+                        while (waitpid(pid, &status, WNOHANG) == 0) {
+                            ui_print(".");
+                            sleep(1);
+                        }
+                        ui_print("\n");
+
+                        if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+                             ui_print("\nError restoring data.\n\n");
+                        } else {
+                             ui_print("\nRestore complete!\n\n");
+                        }
+                    }
+                    break;
+
 // drakaz : launch Galaxy's modified Nandroid backup script with backup option
 	    	case ITEM_NANDROID:
                     if (ensure_root_path_mounted("SDCARD:") != 0) {
@@ -844,7 +946,7 @@ prompt_and_wait()
                         if (pid == 0) {
                             char *args[] = {"/sbin/sh", NANDROID_BIN, "-b", NULL};
                             execv("/sbin/sh", args);
-                            fprintf(stderr, "E:Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
+                            fprintf(stderr, "E:Can't run %s\n(%s)\n", BACKUP_DATA_BIN, strerror(errno));
                             _exit(-1);
                         }
 
@@ -1534,8 +1636,7 @@ prompt_and_wait()
                         ui_print("\nOperation complete!\n\n");
                     }
                     if (!ui_text_visible()) return;
-                    break;	
-
+                    break;
             }
             // if we didn't return from this function to reboot, show
             // the menu again.
@@ -1573,6 +1674,25 @@ main(int argc, char **argv)
     
     char prop_value[PROPERTY_VALUE_MAX];
     property_get("ro.modversion", &prop_value, "not set");
+
+
+
+
+// Create themes dir
+
+    pid_t pidtheme = fork();
+    if (pidtheme == 0) {
+	char *argstheme[] = { "mkdir", "/sdcard/themes", NULL };
+	execv("/sbin/busybox", argstheme);
+        fprintf(stderr, "Can't mkdir /sdcard/themes\n(%s)\n", strerror(errno));
+        _exit(-1);
+    }
+    int statustheme;
+    while (waitpid(pidtheme, &statustheme, WNOHANG) == 0) {
+    	ui_print(".");
+    	sleep(1);
+    }
+
 
     ui_init();
     ui_print("Build: ");
