@@ -647,13 +647,14 @@ prompt_and_wait()
 
 
 
+
 // drakaz : delete console access because of non existent keyboard on galaxy
     static char* items[] = { "Reboot system now",
                              "Apply sdcard:update.zip",
                              "Apply any zip from sd",
 			     "Apply a theme from sd",
 			     "Restore G.Apps",
-			     "Restore libhgl",
+			     "Restore EGL libs",
 			     "Mount SD(s) on PC",
 			     "Umount SD(s) from PC",
 			     "Backup market+sms/mms db",
@@ -781,7 +782,7 @@ prompt_and_wait()
                     }
 		    sync();
 		    if (!WIFEXITED(fsck_status) || (WEXITSTATUS(fsck_status) != 0)) {		  		
-			ui_print("\nRestore aborted : see /tmp/recovery.log\n");
+			ui_print("\nRestore aborted : see /sdcard/recovery.log\n");
                     } else {
                         ui_print("\nRestore completed\n");
                     }
@@ -796,7 +797,7 @@ prompt_and_wait()
 
 
 		case ITEM_LIBHGL:
-		    ui_print("\n-- Restoring libhgl from HTC update");
+		    ui_print("\n-- Restoring EGL libs");
 		    ui_print("\n-- Press HOME to confirm, or");
                     ui_print("\n-- any other key to abort..");
  		    int confirm_libhgl = ui_wait_key();
@@ -804,7 +805,7 @@ prompt_and_wait()
  		    	ui_print("\n-- Restore started...\n");
 			pid_t pidf = fork();
                     if (pidf == 0) {
-			char *args[] = { "/sbin/sh", "/tmp/RECTOOLS/hgl.sh", NULL };
+			char *args[] = { "/sbin/sh", "/tmp/RECTOOLS/egl.sh", NULL };
 			execv("/sbin/sh", args);
                         fprintf(stderr, "Unable to start the restore script\n(%s)\n", strerror(errno));
                         _exit(-1);
@@ -816,7 +817,7 @@ prompt_and_wait()
                     }
 		    sync();
 		    if (!WIFEXITED(fsck_status) || (WEXITSTATUS(fsck_status) != 0)) {		  		
-			ui_print("\nRestore aborted : see /tmp/recovery.log\n");
+			ui_print("\nRestore aborted : see /sdcard/recovery.log\n");
                     } else {
                         ui_print("\nRestore completed\n");
                     }
@@ -1697,7 +1698,7 @@ main(int argc, char **argv)
     ui_init();
     ui_print("Build: ");
     ui_print(prop_value);
-    ui_print("\nFor android.hdblog.it\n");
+    ui_print("\nBy drakaz\n");
     get_args(&argc, &argv);
 
     int previous_runs = 0;
