@@ -18,11 +18,11 @@ LOCAL_SRC_FILES := \
 
 LOCAL_SRC_FILES += test_roots.c
 
-LOCAL_MODULE := recovery-galaxy
+LOCAL_MODULE := recovery
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 
-RECOVERY_API_VERSION := V0.4.5
+RECOVERY_API_VERSION := V4.6.2
 LOCAL_CFLAGS += -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 
 # This binary is in the recovery ramdisk, which is otherwise a copy of root.

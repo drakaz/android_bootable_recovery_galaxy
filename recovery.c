@@ -57,6 +57,7 @@ static const char *SDCARD_PATH = "SDCARD:";
 static const char *THEMES_PATH = "THEMES:";
 #define SDCARD_PATH_LENGTH 20
 #define THEMES_PATH_LENGTH 20
+
 static const char *TEMPORARY_LOG_FILE = "/sdcard/recovery.log";
 
 /*
@@ -627,22 +628,19 @@ prompt_and_wait()
 #define ITEM_APPLY_UPDATE  2
 #define ITEM_APPLY_THEME   3
 #define ITEM_GRESTORE	   4
-#define ITEM_LIBHGL	   5
-#define UMS_ON	   	   6
-#define UMS_OFF		   7
-#define ITEM_BACKUP_DATA   8
-#define ITEM_RESTORE_DATA  9
-#define ITEM_NANDROID      10
-#define ITEM_RESTORE       11
-#define ITEM_SU_ON	   12
-#define ITEM_SU_OFF	   13
-#define ITEM_WIPE_DATA     14
-#define ITEM_FSCK          15
-#define ITEM_SD_SWAP_ON    16
-#define ITEM_SD_SWAP_OFF   17
-#define FIX_PERMS	   18
-#define ITEM_DELETE	   19
-#define CONVERT_DATA_EXT4  20
+#define UMS_ON	   	   5
+#define UMS_OFF		   6
+#define ITEM_NANDROID      7
+#define ITEM_RESTORE       8
+#define ITEM_SU_ON	   9
+#define ITEM_SU_OFF	   10
+#define ITEM_WIPE_DATA     11
+#define ITEM_FSCK          12
+#define ITEM_SD_SWAP_ON    13
+#define ITEM_SD_SWAP_OFF   14
+#define FIX_PERMS	   15
+#define ITEM_DELETE	   16
+#define CONVERT_DATA_EXT4  17
 
 
 
@@ -653,11 +651,8 @@ prompt_and_wait()
                              "Apply any zip from sd",
 			     "Apply a theme from sd",
 			     "Restore G.Apps",
-			     "Restore libhgl",
 			     "Mount SD(s) on PC",
 			     "Umount SD(s) from PC",
-			     "Backup market+sms/mms db",
-			     "Restore market+sms/mms db",
                              "Nandroid backup",
                              "Restore latest backup",
 			     "Enable root (su)",
@@ -781,7 +776,7 @@ prompt_and_wait()
                     }
 		    sync();
 		    if (!WIFEXITED(fsck_status) || (WEXITSTATUS(fsck_status) != 0)) {		  		
-			ui_print("\nRestore aborted : see /tmp/recovery.log\n");
+			ui_print("\nRestore aborted : see /sdcard/recovery.log\n");
                     } else {
                         ui_print("\nRestore completed\n");
                     }
@@ -795,39 +790,6 @@ prompt_and_wait()
 		    break;
 
 
-		case ITEM_LIBHGL:
-		    ui_print("\n-- Restoring libhgl from HTC update");
-		    ui_print("\n-- Press HOME to confirm, or");
-                    ui_print("\n-- any other key to abort..");
- 		    int confirm_libhgl = ui_wait_key();
-                    if (confirm_libhgl == KEY_DREAM_HOME) {
- 		    	ui_print("\n-- Restore started...\n");
-			pid_t pidf = fork();
-                    if (pidf == 0) {
-			char *args[] = { "/sbin/sh", "/tmp/RECTOOLS/hgl.sh", NULL };
-			execv("/sbin/sh", args);
-                        fprintf(stderr, "Unable to start the restore script\n(%s)\n", strerror(errno));
-                        _exit(-1);
-                    }
-                    int fsck_status;
-                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
-                        ui_print(".");
-                        sleep(1);
-                    }
-		    sync();
-		    if (!WIFEXITED(fsck_status) || (WEXITSTATUS(fsck_status) != 0)) {		  		
-			ui_print("\nRestore aborted : see /tmp/recovery.log\n");
-                    } else {
-                        ui_print("\nRestore completed\n");
-                    }
-
-		    sync();
-
-                    if (!ui_text_visible()) {
-			return;
-		    }
-	            }
-		    break;
 		    
 
 // drakaz : mount internal and external SD as mass storage device in recovery mode
@@ -876,65 +838,7 @@ prompt_and_wait()
                     if (!ui_text_visible()) return;
                     break;	
 
-// drakaz : launch data backup script
-	    	case ITEM_BACKUP_DATA:
-                    if (ensure_root_path_mounted("SDCARD:") != 0) {
-                        ui_print("\nCan't mount sdcard\n");
-                    } else {
-                        ui_print("\nPerforming app data backup");
-                        pid_t pid = fork();
-                        if (pid == 0) {
-                            char *args[] = {"/sbin/sh", BACKUP_DATA_BIN, "backup", NULL};
-                            execv("/sbin/sh", args);
-                            fprintf(stderr, "E:Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
-                            _exit(-1);
-                        }
 
-                        int status;
-
-                        while (waitpid(pid, &status, WNOHANG) == 0) {
-                            ui_print(".");
-                            sleep(1);
-                        }
-                        ui_print("\n");
-
-                        if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-                             ui_print("\nError running data backup. Backup not performed.\n\n");
-                        } else {
-                             ui_print("\nBackup complete!\n\n");
-                        }
-                    }
-                    break;
-
-// drakaz : launch data restore script
-	    	case ITEM_RESTORE_DATA:
-                    if (ensure_root_path_mounted("SDCARD:") != 0) {
-                        ui_print("\nCan't mount sdcard\n");
-                    } else {
-                        ui_print("\nPerforming app data restore");
-                        pid_t pid = fork();
-                        if (pid == 0) {
-                            char *args[] = {"/sbin/sh", BACKUP_DATA_BIN, "restore", NULL};
-                            execv("/sbin/sh", args);
-                            fprintf(stderr, "E:Can't run %s\n(%s)\n", BACKUP_DATA_BIN, strerror(errno));
-                            _exit(-1);
-                        }
-
-                        int status;
-
-                        while (waitpid(pid, &status, WNOHANG) == 0) {
-                            ui_print(".");
-                            sleep(1);
-                        }
-                        ui_print("\n");
-
-                        if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-                             ui_print("\nError restoring data.\n\n");
-                        } else {
-                             ui_print("\nRestore complete!\n\n");
-                        }
-                    }
-                    break;
 
 // drakaz : launch Galaxy's modified Nandroid backup script with backup option
 	    	case ITEM_NANDROID:
@@ -1697,7 +1601,6 @@ main(int argc, char **argv)
     ui_init();
     ui_print("Build: ");
     ui_print(prop_value);
-    ui_print("\nFor android.hdblog.it\n");
     get_args(&argc, &argv);
 
     int previous_runs = 0;
