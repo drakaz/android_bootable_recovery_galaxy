@@ -627,22 +627,21 @@ prompt_and_wait()
 #define ITEM_APPLY_UPDATE  2
 #define ITEM_APPLY_THEME   3
 #define ITEM_GRESTORE	   4
-#define ITEM_LIBHGL	   5
-#define UMS_ON	   	   6
-#define UMS_OFF		   7
-#define ITEM_BACKUP_DATA   8
-#define ITEM_RESTORE_DATA  9
-#define ITEM_NANDROID      10
-#define ITEM_RESTORE       11
-#define ITEM_SU_ON	   12
-#define ITEM_SU_OFF	   13
-#define ITEM_WIPE_DATA     14
-#define ITEM_FSCK          15
-#define ITEM_SD_SWAP_ON    16
-#define ITEM_SD_SWAP_OFF   17
-#define FIX_PERMS	   18
-#define ITEM_DELETE	   19
-#define CONVERT_DATA_EXT4  20
+#define UMS_ON	   	   5
+#define UMS_OFF		   6
+#define ITEM_BACKUP_DATA   7
+#define ITEM_RESTORE_DATA  8
+#define ITEM_NANDROID      9
+#define ITEM_RESTORE       10
+#define ITEM_SU_ON	   11
+#define ITEM_SU_OFF	   12
+#define ITEM_WIPE_DATA     13
+#define ITEM_FSCK          14
+#define ITEM_SD_SWAP_ON    15
+#define ITEM_SD_SWAP_OFF   16
+#define FIX_PERMS	   17
+#define ITEM_DELETE	   18
+#define CONVERT_DATA_EXT4  19
 
 
 
@@ -654,7 +653,6 @@ prompt_and_wait()
                              "Apply any zip from sd",
 			     "Apply a theme from sd",
 			     "Restore G.Apps",
-			     "Restore EGL libs",
 			     "Mount SD(s) on PC",
 			     "Umount SD(s) from PC",
 			     "Backup market+sms/mms db",
@@ -794,42 +792,6 @@ prompt_and_wait()
 		    }
 	            }
 		    break;
-
-
-		case ITEM_LIBHGL:
-		    ui_print("\n-- Restoring EGL libs");
-		    ui_print("\n-- Press HOME to confirm, or");
-                    ui_print("\n-- any other key to abort..");
- 		    int confirm_libhgl = ui_wait_key();
-                    if (confirm_libhgl == KEY_DREAM_HOME) {
- 		    	ui_print("\n-- Restore started...\n");
-			pid_t pidf = fork();
-                    if (pidf == 0) {
-			char *args[] = { "/sbin/sh", "/tmp/RECTOOLS/egl.sh", NULL };
-			execv("/sbin/sh", args);
-                        fprintf(stderr, "Unable to start the restore script\n(%s)\n", strerror(errno));
-                        _exit(-1);
-                    }
-                    int fsck_status;
-                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
-                        ui_print(".");
-                        sleep(1);
-                    }
-		    sync();
-		    if (!WIFEXITED(fsck_status) || (WEXITSTATUS(fsck_status) != 0)) {		  		
-			ui_print("\nRestore aborted : see /sdcard/recovery.log\n");
-                    } else {
-                        ui_print("\nRestore completed\n");
-                    }
-
-		    sync();
-
-                    if (!ui_text_visible()) {
-			return;
-		    }
-	            }
-		    break;
-		    
 
 // drakaz : mount internal and external SD as mass storage device in recovery mode
 		    case UMS_ON:
