@@ -1601,6 +1601,7 @@ main(int argc, char **argv)
     ui_init();
     ui_print("Build: ");
     ui_print(prop_value);
+    ui_print("\nBy drakaz\n");
     get_args(&argc, &argv);
 
     int previous_runs = 0;
