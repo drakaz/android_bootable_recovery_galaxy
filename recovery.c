@@ -629,19 +629,19 @@ prompt_and_wait()
 #define ITEM_GRESTORE	   4
 #define UMS_ON	   	   5
 #define UMS_OFF		   6
-#define ITEM_BACKUP_DATA   7
-#define ITEM_RESTORE_DATA  8
-#define ITEM_NANDROID      9
-#define ITEM_RESTORE       10
-#define ITEM_SU_ON	   11
-#define ITEM_SU_OFF	   12
-#define ITEM_WIPE_DATA     13
-#define ITEM_FSCK          14
-#define ITEM_SD_SWAP_ON    15
-#define ITEM_SD_SWAP_OFF   16
-#define FIX_PERMS	   17
-#define ITEM_DELETE	   18
-#define CONVERT_DATA_EXT4  19
+//#define ITEM_BACKUP_DATA   7
+//#define ITEM_RESTORE_DATA  8
+#define ITEM_NANDROID      7
+#define ITEM_RESTORE       8
+#define ITEM_SU_ON	   9
+#define ITEM_SU_OFF	   10
+#define ITEM_WIPE_DATA     11
+#define ITEM_FSCK          12
+#define ITEM_SD_SWAP_ON    13
+#define ITEM_SD_SWAP_OFF   14
+#define FIX_PERMS	   15
+#define ITEM_DELETE	   16
+#define CONVERT_DATA_EXT4  17
 
 
 
@@ -655,8 +655,8 @@ prompt_and_wait()
 			     "Restore G.Apps",
 			     "Mount SD(s) on PC",
 			     "Umount SD(s) from PC",
-			     "Backup market+sms/mms db",
-			     "Restore market+sms/mms db",
+//			     "Backup market+sms/mms db",
+//			     "Restore market+sms/mms db",
                              "Nandroid backup",
                              "Restore latest backup",
 			     "Enable root (su)",
@@ -840,7 +840,7 @@ prompt_and_wait()
                     break;	
 
 // drakaz : launch data backup script
-	    	case ITEM_BACKUP_DATA:
+/*	    	case ITEM_BACKUP_DATA:
                     if (ensure_root_path_mounted("SDCARD:") != 0) {
                         ui_print("\nCan't mount sdcard\n");
                     } else {
@@ -898,7 +898,7 @@ prompt_and_wait()
                         }
                     }
                     break;
-
+*/
 // drakaz : launch Galaxy's modified Nandroid backup script with backup option
 	    	case ITEM_NANDROID:
                     if (ensure_root_path_mounted("SDCARD:") != 0) {
