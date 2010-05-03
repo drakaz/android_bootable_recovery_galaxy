@@ -22,7 +22,7 @@ LOCAL_MODULE := recovery
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 
-RECOVERY_API_VERSION := V4.6.2
+RECOVERY_API_VERSION := V4.6.3
 LOCAL_CFLAGS += -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 
 # This binary is in the recovery ramdisk, which is otherwise a copy of root.

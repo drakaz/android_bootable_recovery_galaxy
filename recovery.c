@@ -1436,7 +1436,7 @@ prompt_and_wait()
                     int confirm_swap_on = ui_wait_key();
                     if (confirm_swap_on == KEY_DREAM_HOME) {
 			    ui_print("\n");
-                            ui_print("Formatting SD..");
+                            ui_print("Formatting external SD..");
 			    pid_t pid3 = fork();
                             if (pid3 == 0) {
 				char *args3[] = { "/sbin/sh", SDTOOLS, "-s", NULL };
@@ -1475,7 +1475,7 @@ prompt_and_wait()
                     int confirm_swap_off = ui_wait_key();
                     if (confirm_swap_off == KEY_DREAM_HOME) {
                         ui_print("\n");
-                            ui_print("\nFormatting internal SDCARD..");
+                            ui_print("\nFormatting external SDCARD..");
 
 		            // Formattage de la SD interne 
 			    pid_t pid3 = fork();
