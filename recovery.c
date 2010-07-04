@@ -315,6 +315,51 @@ erase_root(const char *root)
     return format_root_device(root);
 }
 
+// Nandroid slot support from bukington
+static int choose_nandroid_slot()
+{
+    static char* headers[] = { "Choose nandroid SLOT",
+                               "",
+                               "Use up/down to highlight;",
+                               "OK to select",
+                               "",
+                               NULL };
+    static char* slots[] = { "Slot 1", "Slot 2", "Slot 3", "Slot 4", NULL };
+
+    ui_start_menu(headers, slots);
+    int selected = 0;
+    int chosen_item = -1;
+
+    finish_recovery(NULL);
+    ui_reset_progress();
+    for (;;) {
+        int key = ui_wait_key();
+        int visible = ui_text_visible();
+
+        if (key == KEY_DREAM_BACK) {
+            break;
+        } else if ((key == KEY_DOWN || key == KEY_VOLUMEDOWN) && visible) {
+            ++selected;
+            selected = ui_menu_select(selected);
+        } else if ((key == KEY_UP || key == KEY_VOLUMEUP) && visible) {
+            --selected;
+            selected = ui_menu_select(selected);
+        } else if ((key == BTN_MOUSE || key == KEY_I7500_CENTER) && visible) {
+            chosen_item = selected;
+        }
+
+        if (chosen_item >= 0) {
+            // turn off the menu, letting ui_print() to scroll output
+            // on the screen.
+            ui_end_menu();
+            break;
+        }
+    }
+
+    return chosen_item+1;
+}
+
+
 static void
 choose_update_file()
 {
@@ -900,114 +945,137 @@ prompt_and_wait()
                     break;
 */
 // drakaz : launch Galaxy's modified Nandroid backup script with backup option
-	    	case ITEM_NANDROID:
-                    if (ensure_root_path_mounted("SDCARD:") != 0) {
-                        ui_print("\nCan't mount sdcard\n");
-                    } else {
-                        ui_print("\nPerforming backup");
-                        pid_t pid = fork();
-                        if (pid == 0) {
-                            char *args[] = {"/sbin/sh", NANDROID_BIN, "-b", NULL};
-                            execv("/sbin/sh", args);
-                            fprintf(stderr, "E:Can't run %s\n(%s)\n", BACKUP_DATA_BIN, strerror(errno));
-                            _exit(-1);
-                        }
+        case ITEM_NANDROID:
+                    {
+                    int slota = choose_nandroid_slot();
+                    if (slota > 0) {
+                      char strSlot[5];
 
-                        int status;
+                      sprintf(strSlot, "SLOT%d", slota);
+                      if (ensure_root_path_mounted("SDCARD:") != 0) {
+                          ui_print("\nCan't mount sdcard\n");
+                      } else {
+                          ui_print("\nPerforming backup in %s", strSlot);
+                          pid_t pid = fork();
+                          if (pid == 0) {
+                              char *args[] = {"/sbin/sh", NANDROID_BIN, "-b", "-s", strSlot, NULL};
+                              execv("/sbin/sh", args);
+                              fprintf(stderr, "E:Can't run %s\n(%s)\n", BACKUP_DATA_BIN, strerror(errno));
+                              _exit(-1);
+                          }
 
-                        while (waitpid(pid, &status, WNOHANG) == 0) {
-                            ui_print(".");
-                            sleep(1);
-                        }
-                        ui_print("\n");
+                          int status;
 
-                        if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-                             ui_print("\nError running nandroid backup. Backup not performed.\n\n");
-                        } else {
-                             ui_print("\nBackup complete!\n\n");
-                        }
+                          while (waitpid(pid, &status, WNOHANG) == 0) {
+                              ui_print(".");
+                              sleep(1);
+                          }
+                          ui_print("\n");
+
+                          if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+                               ui_print("\nError running nandroid backup. Backup not performed.\n\n");
+                          } else {
+                               ui_print("\nBackup complete!\n\n");
+                          }
+                      }
                     }
                     break;
+                    break;
+                    }
 
 // drakaz : launch Galaxy's modified Nandroid backup script with restore option
                 case ITEM_RESTORE:
-                    ui_print("\n-- Restore latest Nandroid backup");
-                    ui_print("\n-- Press HOME to confirm, or");
-                    ui_print("\n-- any other key to abort.");
-                    int confirm_restore = ui_wait_key();
-                    if (confirm_restore == KEY_DREAM_HOME) {
-                        ui_print("\n");
-                        if (ensure_root_path_mounted("SDCARD:") != 0) {
-                            ui_print("\nCan't mount sdcard, aborting.\n");
-                        } else {
-                            ui_print("\nRestoring latest backup");
-                            pid_t pid = fork();
-                            if (pid == 0) {
-                                char *args[] = {"/sbin/sh", NANDROID_BIN, "--restore", "--defaultinput", NULL};
-                                execv("/sbin/sh", args);
-                                fprintf(stderr, "Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
-                                _exit(-1);
-                            }
+                    {
+                      int slota = choose_nandroid_slot();
+                      if (slota > 0) {
+                        char strSlot[5];
+                        sprintf(strSlot, "SLOT%d", slota);
 
-                            int status3;
-
-                            while (waitpid(pid, &status3, WNOHANG) == 0) {
-                                ui_print(".");
-                                sleep(1);
-                            } 
+                        ui_print("\n-- Restore latest Nandroid backup from %s", strSlot);
+                        ui_print("\n-- Press HOME to confirm, or");
+                        ui_print("\n-- any other key to abort.");
+                        int confirm_restore = ui_wait_key();
+                        if (confirm_restore == KEY_DREAM_HOME) {
                             ui_print("\n");
-
-                            if (!WIFEXITED(status3) || (WEXITSTATUS(status3) != 0)) {
-                                ui_print("\nError performing restore!  Try running 'nandroid-mobile.sh --restore' from console.\n\n");
+                            if (ensure_root_path_mounted("SDCARD:") != 0) {
+                                ui_print("\nCan't mount sdcard, aborting.\n");
                             } else {
-                                ui_print("\nRestore complete!\n\n");
+                                ui_print("\nRestoring latest backup from %s", strSlot);
+                                pid_t pid = fork();
+                                if (pid == 0) {
+                                    char *args[] = {"/sbin/sh", NANDROID_BIN, "--restore", "--defaultinput", "-s", strSlot, NULL};
+                                    execv("/sbin/sh", args);
+                                    fprintf(stderr, "Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
+                                    _exit(-1);
+                                }
+
+                                int status3;
+
+                                while (waitpid(pid, &status3, WNOHANG) == 0) {
+                                    ui_print(".");
+                                    sleep(1);
+                                } 
+                                ui_print("\n");
+
+                                if (!WIFEXITED(status3) || (WEXITSTATUS(status3) != 0)) {
+                                    ui_print("\nError performing restore!  Try running 'nandroid-mobile.sh --restore' from console.\n\n");
+                                } else {
+                                    ui_print("\nRestore complete!\n\n");
+      					 if (!ui_text_visible()) return;
+		                     }
+                                }
                             }
-                        }
-                    } else {
-                        ui_print("\nRestore complete!\n\n");
+ 			 } else {
+                        ui_print("\nRestore complete!\n\n");	
+                        }        
                     }
-                    if (!ui_text_visible()) return;
                     break;
-		    
-		    
+		   
 // drakaz : launch Galaxy's modified Nandroid backup script with delete option. Nandroid will delete the oldest backup in it's backup dir
-		case ITEM_DELETE:
-                    ui_print("\n-- Delete oldest Nandroid backup");
-		    ui_print("\n-- BE CARREFULL, If there remains only one backup, this will delete it !");
-                    ui_print("\n-- Press HOME to confirm, or");
-                    ui_print("\n-- any other key to abort.");
-                    int confirm_delete = ui_wait_key();
-                    if (confirm_delete == KEY_DREAM_HOME) {
-                        ui_print("\n");
-                        if (ensure_root_path_mounted("SDCARD:") != 0) {
-                            ui_print("\nCan't mount sdcard, aborting.\n");
-                        } else {
-                            ui_print("\nDeleting oldest backup");
-                            pid_t pid = fork();
-                            if (pid == 0) {
-                                char *args[] = {"/sbin/sh", NANDROID_BIN ,"-d", "--defaultinput", NULL};
-                                execv("/sbin/sh", args);
-                                fprintf(stderr, "Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
-                                _exit(-1);
-                            }
-                            int status3;
-
-                            while (waitpid(pid, &status3, WNOHANG) == 0) {
-                                ui_print(".");
-                                sleep(1);
-                            }
+                case ITEM_DELETE:
+                    {
+                      int slota = choose_nandroid_slot();
+                      if (slota > 0) {
+                        char strSlot[5];
+                        sprintf(strSlot, "SLOT%d", slota);
+                        ui_print("\n-- Delete oldest Nandroid backup in %s", strSlot);
+            ui_print("\n-- BE CARREFULL, If there remains only one backup, this will delete it !");
+                        ui_print("\n-- Press HOME to confirm, or");
+                        ui_print("\n-- any other key to abort.");
+                        int confirm_delete = ui_wait_key();
+                        if (confirm_delete == KEY_DREAM_HOME) {
                             ui_print("\n");
-
-                            if (!WIFEXITED(status3) || (WEXITSTATUS(status3) != 0)) {
-                                ui_print("\nError performing restore!  Try running 'nandroid-mobile.sh --delete' from console.\n\n");
+                            if (ensure_root_path_mounted("SDCARD:") != 0) {
+                                ui_print("\nCan't mount sdcard, aborting.\n");
                             } else {
-                                ui_print("\nDelete complete!\n\n");
+                                ui_print("\nDeleting oldest backup");
+                                pid_t pid = fork();
+                                if (pid == 0) {
+                                    char *args[] = {"/sbin/sh", NANDROID_BIN ,"-d", "--defaultinput", "-s", strSlot, NULL};
+                                    execv("/sbin/sh", args);
+                                    fprintf(stderr, "Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
+                                    _exit(-1);
+                                }
+                                int status3;
+
+                                while (waitpid(pid, &status3, WNOHANG) == 0) {
+                                    ui_print(".");
+                                    sleep(1);
+                                }
+                                ui_print("\n");
+
+                                if (!WIFEXITED(status3) || (WEXITSTATUS(status3) != 0)) {
+                                    ui_print("\nError performing restore!  Try running 'nandroid-mobile.sh --delete' from console.\n\n");
+                                } else {
+                                    ui_print("\nDelete complete!\n\n");
+                                }
                             }
+                        } else {
+                            ui_print("\nDelete complete!\n\n");
                         }
-                    } else {
-                        ui_print("\nDelete complete!\n\n");
+                        if (!ui_text_visible()) return;
+                      }
                     }
-                    if (!ui_text_visible()) return;
                     break;
 
 // drakaz : Add su-root on current rom
