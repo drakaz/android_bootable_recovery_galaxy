@@ -42,7 +42,7 @@ LOCAL_STATIC_LIBRARIES += libstdc++ libc
 #     PRODUCTS/BUILD TYPES. ***
 # TODO: make recovery read the keys from an external file.
 RECOVERY_INSTALL_OTA_KEYS_INC := \
-	$(call intermediates-dir-for,PACKAGING,ota_keys_inc)/keys.inc
+	bootable/recovery/keys.inc
 # Let install.c say #include "keys.inc"
 LOCAL_C_INCLUDES += $(dir $(RECOVERY_INSTALL_OTA_KEYS_INC))
 
@@ -62,4 +62,5 @@ commands_recovery_local_path :=
 
 endif   # TARGET_ARCH == arm
 endif	# !TARGET_SIMULATOR
+
 
