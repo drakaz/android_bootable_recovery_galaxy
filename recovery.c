@@ -138,7 +138,6 @@ static int do_reboot = 1;
 #define SYSTEME_PART "/dev/block/mtdblock1"
 #define DATA_PART "/dev/block/mmcblk0p1"
 
-
 // open a file given in root:path format, mounting partitions as necessary
 static FILE*
 fopen_root_path(const char *root_path, const char *mode) {
@@ -668,25 +667,26 @@ prompt_and_wait()
 // drakaz : add news functions
 // these constants correspond to elements of the items[] list.
 #define ITEM_REBOOT        0
-#define ITEM_APPLY_SDCARD  1
-#define ITEM_APPLY_UPDATE  2
-#define ITEM_APPLY_THEME   3
-#define ITEM_GRESTORE	   4
-#define UMS_ON	   	   5
-#define UMS_OFF		   6
+#define ITEM_REBOOT_RECOVERY        1
+#define ITEM_APPLY_SDCARD  2
+#define ITEM_APPLY_UPDATE  3
+//#define ITEM_APPLY_THEME   3
+//#define ITEM_GRESTORE	   4
+#define UMS_ON	   	   4
+#define UMS_OFF		   5
 //#define ITEM_BACKUP_DATA   7
 //#define ITEM_RESTORE_DATA  8
-#define ITEM_NANDROID      7
-#define ITEM_RESTORE       8
-#define ITEM_SU_ON	   9
-#define ITEM_SU_OFF	   10
-#define ITEM_WIPE_DATA     11
-#define ITEM_FSCK          12
-#define ITEM_SD_SWAP_ON    13
-#define ITEM_SD_SWAP_OFF   14
-#define FIX_PERMS	   15
-#define ITEM_DELETE	   16
-#define CONVERT_DATA_EXT4  17
+#define ITEM_NANDROID      6
+#define ITEM_RESTORE       7
+//#define ITEM_SU_ON	   9
+//#define ITEM_SU_OFF	   10
+#define ITEM_WIPE_DATA     8
+#define ITEM_FSCK          9
+#define ITEM_SD_SWAP_ON    10
+#define ITEM_SD_SWAP_OFF   11
+#define FIX_PERMS	   12
+#define ITEM_DELETE	   13
+//#define CONVERT_DATA_EXT4  17
 
 
 
@@ -694,24 +694,25 @@ prompt_and_wait()
 
 // drakaz : delete console access because of non existent keyboard on galaxy
     static char* items[] = { "Reboot system now",
+			     "Reboot system in recovery now",
                              "Apply sdcard:update.zip",
                              "Apply any zip from sd",
-			     "Apply a theme from sd",
-			     "Restore G.Apps",
+//			     "Apply a theme from sd",
+//			     "Restore G.Apps",
 			     "Mount SD(s) on PC",
 			     "Umount SD(s) from PC",
 //			     "Backup market+sms/mms db",
 //			     "Restore market+sms/mms db",
                              "Nandroid backup",
                              "Restore latest backup",
-			     "Enable root (su)",
-	                     "Disable root (su)",
+//			     "Enable root (su)",
+//	                     "Disable root (su)",
 			     "Wipe data/factory reset",
 			     "Check ext3 filesystem on /data",
 			     "Format ext. SD : swap+fat32",
                              "Format ext. SD : fat32",
 			     "Fix packages permissions",
-//			     "Delete oldest backup",
+			     "Delete oldest backup",
                              NULL };
 
     ui_start_menu(headers, items);
@@ -762,6 +763,31 @@ prompt_and_wait()
                 case ITEM_REBOOT:
                     return;
 
+		case ITEM_REBOOT_RECOVERY:
+ 		    ui_print("\n-- Reboot in recovery...\n");
+		    pid_t pidrrecovery = fork();
+                    if (pidrrecovery == 0) {
+			char *args[] = { "/sbin/reboot", "recovery", NULL };
+			execv("/sbin/reboot", args);
+                        fprintf(stderr, "Unable to reboot in recovery : \n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int rrecovery_status;
+                    while (waitpid(pidrrecovery, &rrecovery_status, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+		    if (!WIFEXITED(rrecovery_status) || (WEXITSTATUS(rrecovery_status) != 0)) {		  		
+			ui_print("\nReboot in recovery aborted : see /sdcard/recovery.log\n");
+                    } else {
+                        ui_print("\nReboot in recovery...\n");
+                    }
+
+                    if (!ui_text_visible()) {
+			return;
+		    }
+		    break;
+
 // Apply sdcard update.zip
 		case ITEM_APPLY_SDCARD:
                     ui_print("\n-- Installing new image!");
@@ -797,14 +823,14 @@ prompt_and_wait()
                     break;
 
 // Apply any theme from SD
-                case ITEM_APPLY_THEME:
+/*                case ITEM_APPLY_THEME:
                     choose_theme_file();
                     break;
-
+*/
 
 // drakaz : launch the shell script which restore Google applications and library from official Galaxy update
 // This script must be updated at each official update and new rom because of signature/md5
-		case ITEM_GRESTORE:
+/*		case ITEM_GRESTORE:
 		    ui_print("\n-- Restoring Google apps");
 		    ui_print("\n-- Press HOME to confirm, or");
                     ui_print("\n-- any other key to abort..");
@@ -837,7 +863,7 @@ prompt_and_wait()
 		    }
 	            }
 		    break;
-
+*/
 // drakaz : mount internal and external SD as mass storage device in recovery mode
 		    case UMS_ON:
                         ui_print("\nMounting SD(s)...");
@@ -1079,7 +1105,7 @@ prompt_and_wait()
                     break;
 
 // drakaz : Add su-root on current rom
-		case ITEM_SU_ON:
+/*		case ITEM_SU_ON:
                     ui_print("\n-- Enable su-root on current rom");
 		    ui_print("\n-- Custom rom have already su-root");
                     ui_print("\n-- Press HOME to confirm, or");
@@ -1210,9 +1236,9 @@ prompt_and_wait()
                     }
                     if (!ui_text_visible()) return;
                     break;
-
+*/
 // drakaz : remove su-root on current rom
-		case ITEM_SU_OFF:
+/*		case ITEM_SU_OFF:
                     ui_print("\n-- Disable su-root on current rom");
                     ui_print("\n-- Press HOME to confirm, or");
                     ui_print("\n-- any other key to abort.");
@@ -1318,7 +1344,7 @@ prompt_and_wait()
                     if (!ui_text_visible()) return;
                     break;	
 		    
-
+*/
 // drakaz : modification of wipe for Galaxy
       case ITEM_WIPE_DATA:
                     ui_print("\n-- This will ERASE your data!");
@@ -1475,7 +1501,7 @@ prompt_and_wait()
 		    
 		    
 // drakaz : ext4 convertion/checking. Convert and sync 3 time to avoid nand refresh pb
-		case CONVERT_DATA_EXT4:
+/*		case CONVERT_DATA_EXT4:
 		    ui_print("\n-- Be carreful, ext4dev can only");
                     ui_print("\n-- be used with custom rom.");
                     ui_print("\n-- !! Wipe to reformat in ext3 !!");
@@ -1553,7 +1579,7 @@ prompt_and_wait()
 		    }
 		    break;
 
-		    
+*/		    
 // drakaz : swap support on external SD by reformatting it in two partition (32mb swap and remaining in fat32)
 		case ITEM_SD_SWAP_ON:
                     ui_print("\n-- Format SD 32Mb swap and remaining in fat32");
