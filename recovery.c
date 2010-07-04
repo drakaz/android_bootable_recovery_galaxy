@@ -669,29 +669,31 @@ prompt_and_wait()
 // drakaz : add news functions
 // these constants correspond to elements of the items[] list.
 #define ITEM_REBOOT        0
-#define ITEM_APPLY_SDCARD  1
-#define ITEM_APPLY_UPDATE  2
-#define ITEM_APPLY_THEME   3
-#define ITEM_GRESTORE	   4
-#define UMS_ON	   	   5
-#define UMS_OFF		   6
-#define ITEM_NANDROID      7
-#define ITEM_RESTORE       8
-#define ITEM_SU_ON	   9
-#define ITEM_SU_OFF	   10
-#define ITEM_WIPE_DATA     11
-#define ITEM_FSCK          12
-#define ITEM_SD_SWAP_ON    13
-#define ITEM_SD_SWAP_OFF   14
-#define FIX_PERMS	   15
-#define ITEM_DELETE	   16
-#define CONVERT_DATA_EXT4  17
+#define ITEM_REBOOT_RECOVERY        1
+#define ITEM_APPLY_SDCARD  2
+#define ITEM_APPLY_UPDATE  3 
+#define ITEM_APPLY_THEME   4 
+#define ITEM_GRESTORE	   5
+#define UMS_ON	   	   6
+#define UMS_OFF		   7
+#define ITEM_NANDROID      8
+#define ITEM_RESTORE       9
+#define ITEM_SU_ON	   10
+#define ITEM_SU_OFF	   11
+#define ITEM_WIPE_DATA     12
+#define ITEM_FSCK          13
+#define ITEM_SD_SWAP_ON    14
+#define ITEM_SD_SWAP_OFF   15
+#define FIX_PERMS	   16
+#define ITEM_DELETE	   17
+#define CONVERT_DATA_EXT4  18
 
 
 
 
 // drakaz : delete console access because of non existent keyboard on galaxy
     static char* items[] = { "Reboot system now",
+			     "Reboot system in recovery now",
                              "Apply sdcard:update.zip",
                              "Apply any zip from sd",
 			     "Apply a theme from sd",
@@ -757,6 +759,32 @@ prompt_and_wait()
             switch (chosen_item) {
                 case ITEM_REBOOT:
                     return;
+
+		case ITEM_REBOOT_RECOVERY:
+                    ui_print("\n-- Reboot in recovery...\n");
+                    pid_t pidrrecovery = fork();
+                    if (pidrrecovery == 0) {
+                        char *args[] = { "/sbin/reboot", "recovery", NULL };
+                        execv("/sbin/reboot", args);
+                        fprintf(stderr, "Unable to reboot in recovery : \n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int rrecovery_status;
+                    while (waitpid(pidrrecovery, &rrecovery_status, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+                    if (!WIFEXITED(rrecovery_status) || (WEXITSTATUS(rrecovery_status) != 0)) {
+                        ui_print("\nReboot in recovery aborted : see /sdcard/recovery.log\n");
+                    } else {
+                        ui_print("\nReboot in recovery...\n");
+                    }
+
+                    if (!ui_text_visible()) {
+                        return;
+                    }
+                    break;
+
 
 // Apply sdcard update.zip
 		case ITEM_APPLY_SDCARD:
