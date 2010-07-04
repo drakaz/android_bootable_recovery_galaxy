@@ -712,7 +712,7 @@ prompt_and_wait()
 			     "Format ext. SD : swap+fat32",
                              "Format ext. SD : fat32",
 			     "Fix packages permissions",
-			     "Delete oldest backup",
+//			     "Delete oldest backup",
                              NULL };
 
     ui_start_menu(headers, items);
@@ -1058,7 +1058,7 @@ prompt_and_wait()
                     break;
 		   
 // drakaz : launch Galaxy's modified Nandroid backup script with delete option. Nandroid will delete the oldest backup in it's backup dir
-                case ITEM_DELETE:
+/*                case ITEM_DELETE:
                     {
                       int slota = choose_nandroid_slot();
                       if (slota > 0) {
@@ -1103,7 +1103,7 @@ prompt_and_wait()
                       }
                     }
                     break;
-
+*/
 // drakaz : Add su-root on current rom
 /*		case ITEM_SU_ON:
                     ui_print("\n-- Enable su-root on current rom");
