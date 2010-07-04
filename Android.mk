@@ -18,7 +18,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_SRC_FILES += test_roots.c
 
-LOCAL_MODULE := recovery-galaxy
+LOCAL_MODULE := recovery
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 
