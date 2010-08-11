@@ -1356,6 +1356,7 @@ prompt_and_wait()
                         erase_root("CACHE:");
 // drakaz : first wipe galaxy internal data with erase_root
 			erase_root("INTERNAL:");
+			erase_root("DBDATA:");
 			ui_print("\nWiping internal data...\n");
 
 // drakaz : second, delete with simple rm to be sure of the correct deletion
