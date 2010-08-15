@@ -684,8 +684,10 @@ prompt_and_wait()
 #define ITEM_FSCK          9
 #define ITEM_SD_SWAP_ON    10
 #define ITEM_SD_SWAP_OFF   11
-#define FIX_PERMS	   12
-#define ITEM_DELETE	   13
+#define ITEM_FORMAT_EXT3   12
+#define ITEM_FORMAT_EXT4   13
+#define FIX_PERMS	   14
+//#define ITEM_DELETE	   13
 //#define CONVERT_DATA_EXT4  17
 
 
@@ -708,9 +710,11 @@ prompt_and_wait()
 //			     "Enable root (su)",
 //	                     "Disable root (su)",
 			     "Wipe data/factory reset",
-			     "Check ext3 filesystem on /data",
+			     "Check filesystem on /data",
 			     "Format ext. SD : swap+fat32",
                              "Format ext. SD : fat32",
+                             "Format /data : ext3",
+                             "Format /data : ext4",
 			     "Fix packages permissions",
 //			     "Delete oldest backup",
                              NULL };
@@ -1354,9 +1358,9 @@ prompt_and_wait()
                     if (confirm_wipe == KEY_DREAM_HOME) {
                         ui_print("\n-- Wiping data...\n");
                         erase_root("CACHE:");
+			erase_root("DBDATA:");
 // drakaz : first wipe galaxy internal data with erase_root
 			erase_root("INTERNAL:");
-			erase_root("DBDATA:");
 			ui_print("\nWiping internal data...\n");
 
 // drakaz : second, delete with simple rm to be sure of the correct deletion
@@ -1379,7 +1383,7 @@ prompt_and_wait()
 // Delete all data in /data
  		    pid_t pidf2 = fork();
                     if (pidf2 == 0) {
-			char *args2[] = {"/system/bin/rm", "-rf", "/data/", NULL};
+			char *args2[] = {"/system/bin/rm", "-rf", "/data/*", NULL};
 			execv("/system/bin/rm", args2);
                         fprintf(stderr, "Unable to format /data\n(%s)\n", strerror(errno));
                         _exit(-1);
@@ -1446,7 +1450,7 @@ prompt_and_wait()
 
 // drakaz : fsck on ext3 filesystem on /data    
 	    case ITEM_FSCK:
-                    ui_print("Checking ext3 /data filesystem");
+                    ui_print("Checking /data filesystem");
 
 // Umount /data partition
  		    pid_t pidf = fork();
@@ -1657,6 +1661,80 @@ prompt_and_wait()
                         ui_print("\nOperation complete!\n\n");
                     }
                    break;
+
+// drakaz : format /data in ext3
+                case ITEM_FORMAT_EXT3:
+                    ui_print("\n-- Format /data in ext3 filesystem");
+                    ui_print("\n-- BE CARREFULL, THIS WILL ERASE ALL YOUR DATA");
+                    ui_print("\n-- Press HOME to confirm, or");
+                    ui_print("\n-- any other key to abort.");
+                    int confirm_ext3 = ui_wait_key();
+                    if (confirm_ext3 == KEY_DREAM_HOME) {
+                            ui_print("\n");
+                            ui_print("Formatting /data in ext3..");
+                            pid_t pid3 = fork();
+                            if (pid3 == 0) {
+                                char *args3[] = {"/tmp/RECTOOLS/mke2fs", "-t", "ext3", "/dev/block/mmcblk0p1", NULL };
+                                execv("/tmp/RECTOOLS/mke2fs", args3);
+                                fprintf(stderr, "Can't format %s\n(%s)\n", strerror(errno));
+                                _exit(-1);
+                            }
+
+                            int status32;
+                            while (waitpid(pid3, &status32, WNOHANG) == 0) {
+                                ui_print(".");
+                                sleep(1);
+                            }
+
+                            ui_print("\n");
+
+                            if (!WIFEXITED(status32) || (WEXITSTATUS(status32) != 0)) {
+                                ui_print("\nError while formatting /data !\n\n");
+                            } else {
+                                ui_print("\n/data is now formatted in ext3 !\n\n");
+                            }
+                    } else {
+                        ui_print("\nOperation complete!\n\n");
+                    }
+                    if (!ui_text_visible()) return;
+                    break;
+
+// drakaz : format /data in ext4
+                case ITEM_FORMAT_EXT4:
+                    ui_print("\n-- Format /data in ext4 filesystem");
+                    ui_print("\n-- BE CARREFULL, THIS WILL ERASE ALL YOUR DATA");
+                    ui_print("\n-- Press HOME to confirm, or");
+                    ui_print("\n-- any other key to abort.");
+                    int confirm_ext4 = ui_wait_key();
+                    if (confirm_ext4 == KEY_DREAM_HOME) {
+                            ui_print("\n");
+                            ui_print("Formatting /data in ext4..");
+                            pid_t pid3 = fork();
+                            if (pid3 == 0) {
+                                char *args3[] = {"/tmp/RECTOOLS/mke2fs", "-t", "ext4", "/dev/block/mmcblk0p1", NULL };
+                                execv("/tmp/RECTOOLS/mke2fs", args3);
+                                fprintf(stderr, "Can't format %s\n(%s)\n", strerror(errno));
+                                _exit(-1);
+                            }
+
+                            int status32;
+                            while (waitpid(pid3, &status32, WNOHANG) == 0) {
+                                ui_print(".");
+                                sleep(1);
+                            }
+
+                            ui_print("\n");
+
+                            if (!WIFEXITED(status32) || (WEXITSTATUS(status32) != 0)) {
+                                ui_print("\nError while formatting /data !\n\n");
+                            } else {
+                                ui_print("\n/data is now formatted in ext4 !\n\n");
+                            }
+                    } else {
+                        ui_print("\nOperation complete!\n\n");
+                    }
+                    if (!ui_text_visible()) return;
+                    break;
 
 
 

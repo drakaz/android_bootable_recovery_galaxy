@@ -63,11 +63,11 @@ static RootInfo g_roots[] = {
     { "BOOT:", g_mtd_device, NULL, "boot", NULL, g_raw },
     { "CACHE:", g_mtd_device, NULL, "cache", "/cache", "yaffs2" },
     { "DATA:", g_mtd_device, NULL, "userdata", "/userdata", "yaffs2" },
-    { "DBDATA:", g_mtd_device, NULL, "dbdata", "/dbdata", "yaffs2" },
+    { "DBDATA:", g_mtd_device, NULL, "data", "/dbdata", "yaffs2" },
     { "PACKAGE:", NULL, NULL, NULL, NULL, g_package_file },
     { "RECOVERY:", g_mtd_device, NULL, "recovery", "/", g_raw },
 // drakaz : ajout de la memoire interne et modif de la sd en mmcblk0p2
-    { "INTERNAL:", "/dev/block/mmcblk0p1", NULL, "data",  "/data", "ext3" },
+    { "INTERNAL:", "/dev/block/mmcblk0p1", NULL, "intdata",  "/data", "ext4" },
     { "SDCARD:", "/dev/block/mmcblk0p2", NULL, "sdcard", "/sdcard", "vfat" },
     { "THEMES:", "/dev/block/mmcblk0p2", NULL, "themes", "/themes", "vfat" },
     { "SYSTEM:", g_mtd_device, NULL, "system", "/system", "yaffs2" },
@@ -393,7 +393,7 @@ format_root_device(const char *root)
 
 // drakaz : ajout du support du formattage de la partition ext3 data propre au galaxy
 LOGW("Data partition info : FS : \"%s\", Name : \"%s\"\n", info->filesystem, info->partition_name );
-	if ( !strcmp(info->partition_name,"data")) {
+	if ( !strcmp(info->partition_name,"intdata")) {
 		int format_data_galaxy;
 		format_data_galaxy == 0;
    		pid_t pid_format = fork();
