@@ -442,37 +442,7 @@ static int choose_nandroid_slot()
                                NULL };
     static char* slots[] = { "Slot 1", "Slot 2", "Slot 3", "Slot 4", NULL };
 
-    ui_start_menu(headers, slots);
-    int selected = 0;
-    int chosen_item = -1;
-
-    finish_recovery(NULL);
-    ui_reset_progress();
-    for (;;) {
-        int key = ui_wait_key();
-        int visible = ui_text_visible();
-
-        if (key == KEY_DREAM_BACK) {
-            break;
-        } else if ((key == KEY_DOWN || key == KEY_VOLUMEDOWN) && visible) {
-            ++selected;
-            selected = ui_menu_select(selected);
-        } else if ((key == KEY_UP || key == KEY_VOLUMEUP) && visible) {
-            --selected;
-            selected = ui_menu_select(selected);
-        } else if ((key == BTN_MOUSE || key == KEY_I7500_CENTER) && visible) {
-            chosen_item = selected;
-        }
-
-        if (chosen_item >= 0) {
-            // turn off the menu, letting ui_print() to scroll output
-            // on the screen.
-            ui_end_menu();
-            break;
-        }
-    }
-
-    return chosen_item+1;
+    return get_menu_selection(headers, slots, 0) + 1;
 }
 
 static void
@@ -751,50 +721,12 @@ prompt_and_wait()
 //			     "Delete oldest backup",
                              NULL };
 
-    ui_start_menu(headers, items);
-    int selected = 0;
-    int chosen_item = -1;
-
     finish_recovery(NULL);
     ui_reset_progress();
     for (;;) {
-        int key = ui_wait_key();
-        int alt = ui_key_pressed(KEY_LEFTALT) || ui_key_pressed(KEY_RIGHTALT);
-        int visible = ui_text_visible();
-
-        if (key == KEY_DREAM_BACK && ui_key_pressed(KEY_DREAM_HOME)) {
-            // Wait for the keys to be released, to avoid triggering
-            // special boot modes (like coming back into recovery!).
-            while (ui_key_pressed(KEY_DREAM_BACK) ||
-                   ui_key_pressed(KEY_DREAM_HOME)) {
-                usleep(1000);
-            }
-            chosen_item = ITEM_REBOOT;
-        } else if (alt && key == KEY_W) {
-            chosen_item = ITEM_WIPE_DATA;
-        } else if (alt && key == KEY_S) {
-            chosen_item = ITEM_APPLY_SDCARD;
-        } else if (alt && key == KEY_A) {
-            chosen_item = ITEM_APPLY_UPDATE;
-        } else if (alt && key == KEY_B) {
-            chosen_item = ITEM_NANDROID;
-        } else if (alt && key == KEY_R) {
-            chosen_item = ITEM_RESTORE;
-        } else if ((key == KEY_DOWN || key == KEY_VOLUMEDOWN) && visible) {
-            ++selected;
-            selected = ui_menu_select(selected);
-        } else if ((key == KEY_UP || key == KEY_VOLUMEUP) && visible) {
-            --selected;
-            selected = ui_menu_select(selected);
-        } else if ((key == BTN_MOUSE || key == KEY_I7500_CENTER) && visible) {
-            chosen_item = selected;
-        } 
+        int chosen_item = get_menu_selection(headers, items, 0);
 
         if (chosen_item >= 0) {
-            // turn off the menu, letting ui_print() to scroll output
-            // on the screen.
-            ui_end_menu();
-
             switch (chosen_item) {
                 case ITEM_REBOOT:
                     return;
@@ -1825,18 +1757,6 @@ prompt_and_wait()
                     if (!ui_text_visible()) return;
                     break;
             }
-            // if we didn't return from this function to reboot, show
-            // the menu again.
-            ui_start_menu(headers, items);
-            selected = 0;
-            chosen_item = -1;
-
-            finish_recovery(NULL);
-            ui_reset_progress();
-
-            // throw away keys pressed while the command was running,
-            // so user doesn't accidentally trigger menu items.
-            ui_clear_key_queue();
         }
     }
 }
