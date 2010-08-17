@@ -132,6 +132,8 @@ static int do_reboot = 1;
 #define FIX_PERMS_BIN "/tmp/RECTOOLS/fix_permissions.sh"
 #define BACKUP_DATA_BIN "/tmp/RECTOOLS/backupdata.sh"
 
+#define NANDROID_BACKUP "/sdcard/nandroid/"
+
 // Pour emulateur..
 //#define SYSTEME_PART "/dev/block/mtdblock0"
 //#define DATA_PART "/dev/block/mtdblock1"
@@ -736,7 +738,7 @@ prompt_and_wait()
 //			     "Backup market+sms/mms db",
 //			     "Restore market+sms/mms db",
                              "Nandroid backup",
-                             "Restore latest backup",
+                             "Restore backup",
 //			     "Enable root (su)",
 //	                     "Disable root (su)",
 			     "Wipe data/factory reset",
@@ -1015,12 +1017,16 @@ prompt_and_wait()
                       if (ensure_root_path_mounted("SDCARD:") != 0) {
                           ui_print("\nCan't mount sdcard\n");
                       } else {
+                          char sdcard_backup_dir[1024];
+                          strcpy(sdcard_backup_dir, NANDROID_BACKUP);
+                          strcat(sdcard_backup_dir, strSlot);
+
                           ui_print("\nPerforming backup in %s", strSlot);
                           pid_t pid = fork();
                           if (pid == 0) {
-                              char *args[] = {"/sbin/sh", NANDROID_BIN, "-b", "-s", strSlot, NULL};
+                              char *args[] = {"/sbin/sh", NANDROID_BIN, "-b", "-p", sdcard_backup_dir, NULL};
                               execv("/sbin/sh", args);
-                              fprintf(stderr, "E:Can't run %s\n(%s)\n", BACKUP_DATA_BIN, strerror(errno));
+                              fprintf(stderr, "E:Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
                               _exit(-1);
                           }
 
@@ -1051,7 +1057,24 @@ prompt_and_wait()
                         char strSlot[5];
                         sprintf(strSlot, "SLOT%d", slota);
 
-                        ui_print("\n-- Restore latest Nandroid backup from %s", strSlot);
+                        static const char* headers[] = {  "Choose a backup to restore",
+                                                          "",
+                                                          "Use up/down to highlight;",
+                                                          "OK to select",
+                                                          "",
+                                                          NULL 
+                        };
+
+                        char sdcard_backup_dir[1024];
+                        strcpy(sdcard_backup_dir, NANDROID_BACKUP);
+                        strcat(sdcard_backup_dir, strSlot);
+                        strcat(sdcard_backup_dir, "/");
+
+                        char* file = choose_file_menu(sdcard_backup_dir, NULL, headers);
+                        if (file != NULL) {
+                            char* backup = basename(file);
+
+                            ui_print("\n-- Restore backup %s from %s", backup, strSlot);
                         ui_print("\n-- Press HOME to confirm, or");
                         ui_print("\n-- any other key to abort.");
                         int confirm_restore = ui_wait_key();
@@ -1060,10 +1083,10 @@ prompt_and_wait()
                             if (ensure_root_path_mounted("SDCARD:") != 0) {
                                 ui_print("\nCan't mount sdcard, aborting.\n");
                             } else {
-                                ui_print("\nRestoring latest backup from %s", strSlot);
+                                    ui_print("\nRestoring backup %s from %s", backup, strSlot);
                                 pid_t pid = fork();
                                 if (pid == 0) {
-                                    char *args[] = {"/sbin/sh", NANDROID_BIN, "--restore", "--defaultinput", "-s", strSlot, NULL};
+                                        char *args[] = {"/sbin/sh", NANDROID_BIN, "--restore", "--defaultinput", "-p", sdcard_backup_dir, "-s", backup, NULL};
                                     execv("/sbin/sh", args);
                                     fprintf(stderr, "Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
                                     _exit(-1);
@@ -1085,12 +1108,10 @@ prompt_and_wait()
 		                     }
                                 }
                             }
- 			 } else {
-                        ui_print("\nRestore complete!\n\n");	
+                        }        
                         }        
                     }
                     break;
-		   
 // drakaz : launch Galaxy's modified Nandroid backup script with delete option. Nandroid will delete the oldest backup in it's backup dir
 /*                case ITEM_DELETE:
                     {
