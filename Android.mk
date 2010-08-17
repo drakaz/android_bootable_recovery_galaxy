@@ -10,6 +10,7 @@ LOCAL_SRC_FILES := \
 	recovery.c \
 	bootloader.c \
 	commands.c \
+	extendedcommand.c \
 	firmware.c \
 	install.c \
 	roots.c \

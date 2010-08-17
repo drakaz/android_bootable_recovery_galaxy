@@ -41,6 +41,8 @@
 #include "minui/minui.h"
 #include "minzip/DirUtil.h"
 #include "roots.h"
+#include "recovery_ui.h"
+#include "extendedcommand.h"
 
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
@@ -314,6 +316,119 @@ erase_root(const char *root)
     return format_root_device(root);
 }
 
+
+int device_handle_key(int key_code, int visible) {
+    if (visible) {
+        switch (key_code) {
+            case KEY_CAPSLOCK:
+            case KEY_DOWN:
+            case KEY_VOLUMEDOWN:
+                return HIGHLIGHT_DOWN;
+
+            case KEY_LEFTSHIFT:
+            case KEY_UP:
+            case KEY_VOLUMEUP:
+                return HIGHLIGHT_UP;
+
+            case KEY_POWER:
+                /*if (ui_get_showing_back_button()) {
+                    return SELECT_ITEM;
+                }
+                if (!get_allow_toggle_display())
+                    return GO_BACK;*/
+                break;
+            case KEY_LEFTBRACE:
+            case KEY_ENTER:
+            case BTN_MOUSE:
+            case KEY_CENTER:
+            case KEY_CAMERA:
+            case KEY_F21:
+            case KEY_SEND:
+                return SELECT_ITEM;
+            
+            case KEY_END:
+            case KEY_BACKSPACE:
+            case KEY_BACK:
+                //if (!get_allow_toggle_display())
+                    return GO_BACK;
+        }
+    }
+
+    return NO_ACTION;
+}
+
+int
+get_menu_selection(char** headers, char** items, int menu_only) {
+    // throw away keys pressed previously, so user doesn't
+    // accidentally trigger menu items.
+    ui_clear_key_queue();
+
+    int item_count = ui_start_menu(headers, items);
+    int selected = 0;
+    int chosen_item = -1;
+
+    // Some users with dead enter keys need a way to turn on power to select.
+    // Jiggering across the wrapping menu is one "secret" way to enable it.
+    // We can't rely on /cache or /sdcard since they may not be available.
+    int wrap_count = 0;
+
+    while (chosen_item < 0 && chosen_item != GO_BACK) {
+        int key = ui_wait_key();
+        int visible = ui_text_visible();
+
+        int action = device_handle_key(key, visible);
+
+        int old_selected = selected;
+
+        if (action < 0) {
+            switch (action) {
+                case HIGHLIGHT_UP:
+                    --selected;
+                    selected = ui_menu_select(selected);
+                    break;
+                case HIGHLIGHT_DOWN:
+                    ++selected;
+                    selected = ui_menu_select(selected);
+                    break;
+                case SELECT_ITEM:
+                    chosen_item = selected;
+                    /*if (ui_get_showing_back_button()) {
+                        if (chosen_item == item_count) {
+                            chosen_item = GO_BACK;
+                        }
+                    }*/
+                    break;
+                case NO_ACTION:
+                    break;
+                case GO_BACK:
+                    chosen_item = GO_BACK;
+                    break;
+            }
+        } else if (!menu_only) {
+            chosen_item = action;
+        }
+
+        if (abs(selected - old_selected) > 1) {
+            wrap_count++;
+            if (wrap_count == 3) {
+                wrap_count = 0;
+                /*if (ui_get_showing_back_button()) {
+                    ui_print("Back menu button disabled.\n");
+                    ui_set_showing_back_button(0);
+                }
+                else {
+                    ui_print("Back menu button enabled.\n");
+                    ui_set_showing_back_button(1);
+                }*/
+            }
+        }
+    }
+
+    ui_end_menu();
+    ui_clear_key_queue();
+    return chosen_item;
+}
+
 // Nandroid slot support from bukington
 static int choose_nandroid_slot()
 {
@@ -358,138 +473,53 @@ static int choose_nandroid_slot()
     return chosen_item+1;
 }
 
-
 static void
-choose_update_file()
-{
-    static char* headers[] = { "Choose update ZIP file",
-                               "",
-                               "Use up/down to highlight;",
-                               "OK to select",
-                               "",
-                               NULL };
+choose_update_file() {
 
-    char path[PATH_MAX] = "";
-    DIR *dir;
-    struct dirent *de;
-    char **files;
-    int total = 0;
-    int i;
+  if (ensure_root_path_mounted(SDCARD_PATH) != 0) {
+      LOGE("Can't mount %s\n", SDCARD_PATH);
+      return;
+  }
 
-    if (ensure_root_path_mounted(SDCARD_PATH) != 0) {
-        LOGE("Can't mount %s\n", SDCARD_PATH);
-        return;
-    }
+  static const char* headers[] = {  "Choose a zip to apply",
+                              "",
+                              "Use up/down to highlight;",
+                              "OK to select",
+                              "",
+                              NULL 
+  };
 
-    if (translate_root_path(SDCARD_PATH, path, sizeof(path)) == NULL) {
-        LOGE("Bad path %s", path);
-        return;
-    }
+  char* file = choose_file_menu("/sdcard/", ".zip", headers);
+  if (file == NULL)
+    return;
 
-    dir = opendir(path);
-    if (dir == NULL) {
-        LOGE("Couldn't open directory %s", path);
-        return;
-    }
+  char sdcard_package_file[1024];
+  strcpy(sdcard_package_file, "SDCARD:");
+  strcat(sdcard_package_file,  file + strlen("/sdcard/"));
 
-    /* count how many files we're looking at */
-    while ((de = readdir(dir)) != NULL) {
-        char *extension = strrchr(de->d_name, '.');
-        if (extension == NULL || de->d_name[0] == '.') {
-            continue;
-        } else if (!strcasecmp(extension, ".zip")) {
-            total++;
-        }
-    }
-
-    /* allocate the array for the file list menu */
-    files = (char **) malloc((total + 1) * sizeof(*files));
-    files[total] = NULL;
-
-    /* set it up for the second pass */
-    rewinddir(dir);
-
-    /* put the names in the array for the menu */
-    i = 0;
-    while ((de = readdir(dir)) != NULL) {
-        char *extension = strrchr(de->d_name, '.');
-        if (extension == NULL || de->d_name[0] == '.') {
-            continue;
-        } else if (!strcasecmp(extension, ".zip")) {
-            files[i] = (char *) malloc(SDCARD_PATH_LENGTH + strlen(de->d_name) + 1);
-            strcpy(files[i], SDCARD_PATH);
-            strcat(files[i], de->d_name);
-            i++;
-        }
-    }
-
-    /* close directory handle */
-    if (closedir(dir) < 0) {
-        LOGE("Failure closing directory %s", path);
-        goto out;
-    }
-
-    ui_start_menu(headers, files);
-    int selected = 0;
-    int chosen_item = -1;
-
-    finish_recovery(NULL);
-    ui_reset_progress();
-    for (;;) {
-        int key = ui_wait_key();
-        int visible = ui_text_visible();
-
-        if (key == KEY_DREAM_BACK) {
-            break;
-        } else if ((key == KEY_DOWN || key == KEY_VOLUMEDOWN) && visible) {
-            ++selected;
-            selected = ui_menu_select(selected);
-        } else if ((key == KEY_UP || key == KEY_VOLUMEUP) && visible) {
-            --selected;
-            selected = ui_menu_select(selected);
-        } else if ((key == BTN_MOUSE || key == KEY_I7500_CENTER) && visible) {
-            chosen_item = selected;
-        }
-
-        if (chosen_item >= 0) {
-            // turn off the menu, letting ui_print() to scroll output
-            // on the screen.
-            ui_end_menu();
-
-            ui_print("\n-- Installing new image!");
-            ui_print("\n-- Press HOME to confirm, or");
-            ui_print("\n-- any other key to abort\n\n");
-            int confirm_apply = ui_wait_key();
-            if (confirm_apply == KEY_DREAM_HOME) {
-                ui_print("\nInstalling from sdcard...\n");
-                int status = install_package(files[chosen_item]);
-                if (status != INSTALL_SUCCESS) {
-                    ui_set_background(BACKGROUND_ICON_ERROR);
-                    ui_print("Installation failed\n");
-                } else if (!ui_text_visible()) {
-                    break;  // reboot if logs aren't visible
-                } else {
-                    if (firmware_update_pending()) {
-                        ui_print("\nReboot\n"
-                                 "to complete installation\n");
-                    } else {
-                        ui_print("\nInstall from sdcard complete\n");
-                    }
-                }
-            } else {
-                ui_print("\nInstallation failed");
-            }
-            if (!ui_text_visible()) break;
-            break;
-        }
-    }
-
-out:
-
-    for (i = 0; i < total; i++) {
-        free(files[i]);
-    }
-    free(files);
+  ui_print("\n-- Installing new image!");
+  ui_print("\n-- Press HOME to confirm, or");
+  ui_print("\n-- any other key to abort\n\n");
+  int confirm_apply = ui_wait_key();
+  if (confirm_apply == KEY_DREAM_HOME) {
+      ui_print("\nInstalling from sdcard...\n");
+      int status = install_package(sdcard_package_file);
+      if (status != INSTALL_SUCCESS) {
+          ui_set_background(BACKGROUND_ICON_ERROR);
+          ui_print("Installation failed\n");
+      } else if (!ui_text_visible()) {
+          return;//break;  // reboot if logs aren't visible
+      } else {
+          if (firmware_update_pending()) {
+              ui_print("\nReboot\n"
+                       "to complete installation\n");
+          } else {
+              ui_print("\nInstall from sdcard complete\n");
+          }
+      }
+  } else {
+      ui_print("\nInstallation failed");
+  }
 }
 
 static void
