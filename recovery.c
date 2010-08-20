@@ -129,6 +129,7 @@ static int do_reboot = 1;
 
 
 // drakaz : binary location
+#define STARTUP_BIN "/tmp/RECTOOLS/startup.sh"
 #define NANDROID_BIN "/tmp/RECTOOLS/nandroid-mobile.sh"
 #define MKE2FS_BIN "/tmp/RECTOOLS/mke2fs"
 #define E2FSCK_BIN "/tmp/RECTOOLS/e2fsck"
@@ -322,6 +323,25 @@ erase_root(const char *root)
     return format_root_device(root);
 }
 
+static void
+run_startup_script() {
+    ui_print("Running startup script");
+    pid_t pid = fork();
+    if (pid == 0) {
+        char *args[] = { STARTUP_BIN, "1>&2", NULL };
+        execv(STARTUP_BIN, args);
+        fprintf(stderr, "Unable to execute startup script!", strerror(errno));
+        _exit(-1);
+    }
+    int status;
+    while (waitpid(pid, &status, WNOHANG) == 0) {
+        ui_print(".");
+        sleep(1);
+    }
+    if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+        ui_print("Error while execution startup script!");
+    }
+}
 
 int device_handle_key(int key_code, int visible) {
     if (visible) {
@@ -918,6 +938,8 @@ prompt_and_wait()
 			     "Fix packages permissions",
 //			     "Delete oldest backup",
                              NULL };
+
+    run_startup_script();
 
     finish_recovery(NULL);
     ui_reset_progress();
