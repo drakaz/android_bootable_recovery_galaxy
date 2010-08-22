@@ -147,6 +147,12 @@ static int do_reboot = 1;
 #define SYSTEME_PART "/dev/block/mtdblock1"
 #define DATA_PART "/dev/block/mmcblk0p1"
 
+#define MAX_COMMAND_ARG 256
+static char command_prompt[MAX_COMMAND_ARG];
+static char command_label[MAX_COMMAND_ARG];
+static char command[MAX_COMMAND_ARG];
+static char command_err[MAX_COMMAND_ARG];
+
 // open a file given in root:path format, mounting partitions as necessary
 static FILE*
 fopen_root_path(const char *root_path, const char *mode) {
@@ -324,13 +330,52 @@ erase_root(const char *root)
 }
 
 static void
+run_script(char *str1,char *str2,char *str3,char *str4,char *str5,char *str6,char *str7, bool promptUser)
+{
+
+    bool confirm = true;
+    if (promptUser) {
+        ui_clear_key_queue();
+        ui_print("\n-- ");
+        ui_print(str1);
+        ui_print("\n-- Press HOME to confirm, or");
+        ui_print("\n-- any other key to abort.");
+        confirm = (ui_wait_key() == KEY_HOME);
+    }
+    if (confirm) {
+        ui_print(str2);
+        pid_t pid = fork();
+        if (pid == 0) {
+            char *args[] = { "/sbin/sh", "-c", str3, "1>&2", NULL };
+            execv("/sbin/sh", args);
+            fprintf(stderr, str4, strerror(errno));
+            _exit(-1);
+        }
+        int status;
+        while (waitpid(pid, &status, WNOHANG) == 0) {
+            ui_print(".");
+            sleep(1);
+        }
+        ui_print("\n");
+        if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+            ui_print(str5);
+        } else {
+            ui_print(str6);
+        }
+    } else {
+        ui_print(str7);
+    }
+    if (!ui_text_visible()) return;
+}
+
+static void
 run_startup_script() {
     ui_print("Running startup script");
     pid_t pid = fork();
     if (pid == 0) {
         char *args[] = { STARTUP_BIN, "1>&2", NULL };
         execv(STARTUP_BIN, args);
-        fprintf(stderr, "Unable to execute startup script!", strerror(errno));
+        fprintf(stderr, "\nUnable to execute startup script!\n(%s)", strerror(errno));
         _exit(-1);
     }
     int status;
@@ -339,7 +384,7 @@ run_startup_script() {
         sleep(1);
     }
     if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-        ui_print("Error while execution startup script!");
+        ui_print("\nError while executing startup script!\n");
     }
 }
 
@@ -504,28 +549,17 @@ static void show_nandroid_menu()
                             strcpy(sdcard_backup_dir, NANDROID_BACKUP);
                             strcat(sdcard_backup_dir, strSlot);
 
-                            ui_print("\nPerforming backup in %s", strSlot);
-                            pid_t pid = fork();
-                            if (pid == 0) {
-                                char *args[] = {"/sbin/sh", NANDROID_BIN, "-b", "-p", sdcard_backup_dir, NULL};
-                                execv("/sbin/sh", args);
-                                fprintf(stderr, "E:Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
-                                _exit(-1);
-                            }
-
-                            int status;
-
-                            while (waitpid(pid, &status, WNOHANG) == 0) {
-                                ui_print(".");
-                                sleep(1);
-                            }
-                            ui_print("\n");
-
-                            if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-                                 ui_print("\nError running nandroid backup. Backup not performed.\n\n");
-                            } else {
-                                 ui_print("\nBackup complete!\n\n");
-                            }
+                            snprintf(command_label, MAX_COMMAND_ARG, "\nPerforming backup in %s", strSlot);
+                            snprintf(command, MAX_COMMAND_ARG, "%s -b -p %s", NANDROID_BIN, sdcard_backup_dir);
+                            snprintf(command_err, MAX_COMMAND_ARG, "\nE:Can't run %s\n(%s)", NANDROID_BIN); 
+                            run_script("",
+                                       command_label,
+                                       command,
+                                       command_err,
+                                       "\nError running nandroid backup. Backup not performed.",
+                                       "\nBackup complete!",
+                                       "\nBackup aborted by user!",
+                                       false);
                         }
                     }
                 }
@@ -555,41 +589,18 @@ static void show_nandroid_menu()
                         if (file != NULL) {
                             char* backup = basename(file);
 
-                            ui_print("\n-- Restore backup %s from %s", backup, strSlot);
-                            ui_print("\n-- Press HOME to confirm, or");
-                            ui_print("\n-- any other key to abort.");
-                            int confirm_restore = ui_wait_key();
-                            if (confirm_restore == KEY_DREAM_HOME) {
-                                ui_print("\n");
-                                if (ensure_root_path_mounted("SDCARD:") != 0) {
-                                    ui_print("\nCan't mount sdcard, aborting.\n");
-                                } else {
-                                    ui_print("\nRestoring backup %s from %s", backup, strSlot);
-                                    pid_t pid = fork();
-                                    if (pid == 0) {
-                                        char *args[] = {"/sbin/sh", NANDROID_BIN, "--restore", "--defaultinput", "-p", sdcard_backup_dir, "-s", backup, NULL};
-                                        execv("/sbin/sh", args);
-                                        fprintf(stderr, "Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
-                                        _exit(-1);
-                                    }
-
-                                    int status3;
-
-                                    while (waitpid(pid, &status3, WNOHANG) == 0) {
-                                        ui_print(".");
-                                        sleep(1);
-                                    } 
-                                    ui_print("\n");
-
-                                    if (!WIFEXITED(status3) || (WEXITSTATUS(status3) != 0)) {
-                                        ui_print("\nError performing restore!  Try running 'nandroid-mobile.sh --restore' from console.\n\n");
-                                    } else {
-                                        ui_print("\nRestore complete!\n\n");
-                                        // Return to nandroid menu
-                                        break;
-                                    }
-                                }
-                            }
+                            snprintf(command_prompt, MAX_COMMAND_ARG, "Restore backup %s from %s", backup, strSlot);
+                            snprintf(command_label, MAX_COMMAND_ARG, "\nRestoring backup %s from %s", backup, strSlot);
+                            snprintf(command, MAX_COMMAND_ARG, "%s --restore --defaultinput -p %s -s %s", NANDROID_BIN, sdcard_backup_dir, backup);
+                            snprintf(command_err, MAX_COMMAND_ARG, "\nE:Can't run %s\n(\%s)", NANDROID_BIN); 
+                            run_script(command_prompt,
+                                       command_label,
+                                       command,
+                                       command_err,
+                                       "\nError running nandroid restore! Try running 'nandroid-mobile.sh --restore' from console.",
+                                       "\nRestore complete!",
+                                       "\nRestore aborted by user!",
+                                       true);
                         }
                     }
                 }
@@ -626,39 +637,18 @@ static void show_nandroid_menu()
 
                             char* backup = basename(file);
 
-                            ui_print("\n-- Delete backup %s from %s", backup, strSlot);
-                            ui_print("\n-- Press HOME to confirm, or");
-                            ui_print("\n-- any other key to abort.");
-                            int confirm_restore = ui_wait_key();
-                            if (confirm_restore == KEY_DREAM_HOME) {
-                                ui_print("\n");
-                                if (ensure_root_path_mounted("SDCARD:") != 0) {
-                                    ui_print("\nCan't mount sdcard, aborting.\n");
-                                } else {
-                                    ui_print("\nDeleting backup %s from %s", backup, strSlot);
-                                    pid_t pid = fork();
-                                    if (pid == 0) {
-                                        char *args[] = {"/sbin/sh", NANDROID_BIN, "-d", "--defaultinput", "-p", sdcard_backup_dir, "-s", backup, NULL};
-                                        execv("/sbin/sh", args);
-                                        fprintf(stderr, "Can't run %s\n(%s)\n", NANDROID_BIN, strerror(errno));
-                                        _exit(-1);
-                                    }
-
-                                    int status3;
-
-                                    while (waitpid(pid, &status3, WNOHANG) == 0) {
-                                        ui_print(".");
-                                        sleep(1);
-                                    } 
-                                    ui_print("\n");
-
-                                    if (!WIFEXITED(status3) || (WEXITSTATUS(status3) != 0)) {
-                                        ui_print("\nError performing delete!  Try running 'nandroid-mobile.sh -d' from console.\n\n");
-                                    } else {
-                                        ui_print("\nDelete complete!\n\n");
-                                    }
-                                }
-                            }
+                            snprintf(command_prompt, MAX_COMMAND_ARG, "Delete backup %s from %s", backup, strSlot);
+                            snprintf(command_label, MAX_COMMAND_ARG, "\nDeleting backup %s from %s", backup, strSlot);
+                            snprintf(command, MAX_COMMAND_ARG, "%s -d --defaultinput -p %s -s %s", NANDROID_BIN, sdcard_backup_dir, backup);
+                            snprintf(command_err, MAX_COMMAND_ARG, "\nE:Can't run %s\n(\%s)", NANDROID_BIN); 
+                            run_script(command_prompt,
+                                       command_label,
+                                       command,
+                                       command_err,
+                                       "\nError performing delete!  Try running 'nandroid-mobile.sh -d' from console.",
+                                       "\nDelete complete!",
+                                       "\nDelete aborted by user!",
+                                       true);
                         }
                     }
                 }
