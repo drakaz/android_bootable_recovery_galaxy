@@ -31,6 +31,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <termios.h> 
+#include <libgen.h>
 
 #include "bootloader.h"
 #include "commands.h"
