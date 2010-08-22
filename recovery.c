@@ -335,6 +335,7 @@ run_script(char *str1,char *str2,char *str3,char *str4,char *str5,char *str6,cha
 {
 
     bool confirm = true;
+    ui_end_menu();
     if (promptUser) {
         ui_clear_key_queue();
         ui_print("\n-- ");
@@ -496,7 +497,7 @@ get_menu_selection(char** headers, char** items, int menu_only) {
         }
     }
 
-    ui_end_menu();
+    //ui_end_menu();
     ui_clear_key_queue();
     return chosen_item;
 }
@@ -683,6 +684,7 @@ choose_update_file() {
   strcpy(sdcard_package_file, "SDCARD:");
   strcat(sdcard_package_file,  file + strlen("/sdcard/"));
 
+  ui_end_menu();
   ui_print("\n-- Installing new image!");
   ui_print("\n-- Press HOME to confirm, or");
   ui_print("\n-- any other key to abort\n\n");
@@ -943,6 +945,7 @@ prompt_and_wait()
                     return;
 
 		case ITEM_REBOOT_RECOVERY:
+            ui_end_menu();
  		    ui_print("\n-- Reboot in recovery...\n");
 		    pid_t pidrrecovery = fork();
                     if (pidrrecovery == 0) {
@@ -969,6 +972,7 @@ prompt_and_wait()
 
 // Apply sdcard update.zip
 		case ITEM_APPLY_SDCARD:
+                    ui_end_menu();
                     ui_print("\n-- Installing new image!");
                     ui_print("\n-- Press HOME to confirm, or");
                     ui_print("\n-- any other key to abort..");
@@ -1045,6 +1049,7 @@ prompt_and_wait()
 */
 // drakaz : mount internal and external SD as mass storage device in recovery mode
 		    case UMS_ON:
+               ui_end_menu();
                         ui_print("\nMounting SD(s)...");
                         
 			   FILE *umsdonfile;
@@ -1074,6 +1079,7 @@ prompt_and_wait()
 
 // drakaz : umount internal and external SD
 		case UMS_OFF:
+               ui_end_menu();
                         ui_print("\nUnmounting SD(s)...");
 		          
                            FILE *umsdfile;
@@ -1395,6 +1401,7 @@ prompt_and_wait()
 */
 // drakaz : modification of wipe for Galaxy
       case ITEM_WIPE_DATA:
+            ui_end_menu();
                     ui_print("\n-- This will ERASE your data!");
                     ui_print("\n-- Press HOME to confirm, or");
                     ui_print("\n-- any other key to abort..");
@@ -1494,7 +1501,8 @@ prompt_and_wait()
 
 // drakaz : fsck on ext3 filesystem on /data    
 	    case ITEM_FSCK:
-                    ui_print("Checking /data filesystem");
+            ui_end_menu();
+                    ui_print("\nChecking /data filesystem");
 
 // Umount /data partition
  		    pid_t pidf = fork();
@@ -1631,6 +1639,7 @@ prompt_and_wait()
 */		    
 // drakaz : swap support on external SD by reformatting it in two partition (32mb swap and remaining in fat32)
 		case ITEM_SD_SWAP_ON:
+            ui_end_menu();
                     ui_print("\n-- Format SD 32Mb swap and remaining in fat32");
 		    ui_print("\n-- BE CARREFULL, THIS WILL ERASE ALL THE DATA ON EXTERNAL SDCARD");
                     ui_print("\n-- Press HOME to confirm, or");
@@ -1670,6 +1679,7 @@ prompt_and_wait()
 
 // drakaz : remove swap on external SD by reformatting it in only one fat32 partition
 		case ITEM_SD_SWAP_OFF:
+                ui_end_menu();
                     ui_print("\n-- Format external SD in fat32");
 		    ui_print("\n-- BE CARREFULL, THIS WILL ERASE ALL THE DATA ON EXTERNAL SDCARD");
                     ui_print("\n-- Press HOME to confirm, or");
@@ -1708,6 +1718,7 @@ prompt_and_wait()
 
 // drakaz : format /data in ext3
                 case ITEM_FORMAT_EXT3:
+                    ui_end_menu();
                     ui_print("\n-- Format /data in ext3 filesystem");
                     ui_print("\n-- BE CARREFULL, THIS WILL ERASE ALL YOUR DATA");
                     ui_print("\n-- Press HOME to confirm, or");
@@ -1745,6 +1756,7 @@ prompt_and_wait()
 
 // drakaz : format /data in ext4
                 case ITEM_FORMAT_EXT4:
+                    ui_end_menu();
                     ui_print("\n-- Format /data in ext4 filesystem");
                     ui_print("\n-- BE CARREFULL, THIS WILL ERASE ALL YOUR DATA");
                     ui_print("\n-- Press HOME to confirm, or");
@@ -1784,6 +1796,7 @@ prompt_and_wait()
 
 // drakaz : launch script which fix package permissions
 		case FIX_PERMS:
+                ui_end_menu();
                     ui_print("\n-- Fix permissions on /data");
 		    ui_print("\n-- Usefull after an upgrade");
                     ui_print("\n-- Press HOME to confirm, or");
