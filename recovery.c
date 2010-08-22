@@ -1720,7 +1720,7 @@ prompt_and_wait()
                             if (pid3 == 0) {
                                 char *args3[] = {"/tmp/RECTOOLS/mke2fs", "-t", "ext3", "/dev/block/mmcblk0p1", NULL };
                                 execv("/tmp/RECTOOLS/mke2fs", args3);
-                                fprintf(stderr, "Can't format %s\n(%s)\n", strerror(errno));
+                                fprintf(stderr, "Can't format /data\n(%s)\n", strerror(errno));
                                 _exit(-1);
                             }
 
@@ -1757,7 +1757,7 @@ prompt_and_wait()
                             if (pid3 == 0) {
                                 char *args3[] = {"/tmp/RECTOOLS/mke2fs", "-t", "ext4", "/dev/block/mmcblk0p1", NULL };
                                 execv("/tmp/RECTOOLS/mke2fs", args3);
-                                fprintf(stderr, "Can't format %s\n(%s)\n", strerror(errno));
+                                fprintf(stderr, "Can't format /data\n(%s)\n", strerror(errno));
                                 _exit(-1);
                             }
 
