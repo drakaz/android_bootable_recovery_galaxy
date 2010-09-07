@@ -364,7 +364,7 @@ int
 install_package(const char *root_path)
 {
     ui_set_background(BACKGROUND_ICON_INSTALLING);
-    ui_print("Finding update package...\n");
+    ui_print("\nFinding update package...\n");
     ui_show_indeterminate_progress();
     LOGI("Update location: %s\n", root_path);
 

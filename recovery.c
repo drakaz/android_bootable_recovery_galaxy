@@ -52,8 +52,14 @@
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
   { "update_package", required_argument, NULL, 'u' },
+  { "update_gapps", required_argument, NULL, 'g' },
   { "wipe_data", no_argument, NULL, 'w' },
   { "wipe_cache", no_argument, NULL, 'c' },
+  { "wipe_full", no_argument, NULL, 'a' },
+  { "nandroid", no_argument, NULL, 'n' },
+  { "reboot", no_argument, NULL, 'r' },
+  { "hello", no_argument, NULL, 'h' },
+  { "migrate", no_argument, NULL, 'm' },
 };
 
 static const char *COMMAND_FILE = "CACHE:recovery/command";
@@ -270,6 +276,7 @@ finish_recovery(const char *send_intent)
     }
 
     // Copy logs to cache so the system can find out what happened.
+    /*
     FILE *log = fopen_root_path(LOG_FILE, "a");
     if (log == NULL) {
         LOGE("Can't open %s\n", LOG_FILE);
@@ -287,7 +294,7 @@ finish_recovery(const char *send_intent)
         }
         check_and_fclose(log, LOG_FILE);
     }
-
+    */
     // Reset the bootloader message to revert to a normal main system boot.
     struct bootloader_message boot;
     memset(&boot, 0, sizeof(boot));
@@ -333,7 +340,6 @@ erase_root(const char *root)
 static void
 run_script(char *str1,char *str2,char *str3,char *str4,char *str5,char *str6,char *str7, bool promptUser)
 {
-
     bool confirm = true;
     ui_end_menu();
     if (promptUser) {
@@ -1498,7 +1504,6 @@ prompt_and_wait()
 		    }
                     break;
 
-
 // drakaz : fsck on ext3 filesystem on /data    
 	    case ITEM_FSCK:
             ui_end_menu();
@@ -1835,6 +1840,149 @@ prompt_and_wait()
     }
 }
 
+
+/* AUTO FUNCTIONS */
+
+static void exec_hello() {
+	ui_print("\n");
+	ui_print("\n");
+	ui_print("\n------------ WELCOME -----------");
+	ui_print("\n---- AUTOMATIC MODE ENABLED ----");
+	ui_print("\n-                              -");
+	ui_print("\n-                              -");
+	ui_print("\n-                              -");
+	ui_print("\n-       STARTING PROCESS       -");
+	ui_print("\n-                              -");
+	ui_print("\n-                              -");
+}
+
+static int exec_nandroid() {
+	ui_print("\n-                              -");
+	ui_print("\n-                              -");
+	ui_print("\n- BACKUP CURRENT ROM IN SLOT4  -");
+	ui_print("\n-          PLEASE WAIT         -");
+	ui_print("\n-     IT CAN TAKE SOME TIME    -");
+	ui_print("\n-                              -");
+	ui_print("\n-                              -");
+	if (ensure_root_path_mounted("SDCARD:") != 0) {
+  	      ui_print("\nCan't mount sdcard\n");
+	      ui_print("\nFlash process stopped !\n");
+        } else {
+        char sdcard_backup_dir[1024];
+        strcpy(sdcard_backup_dir, NANDROID_BACKUP);
+        strcat(sdcard_backup_dir, "SLOT4");
+        strcat(sdcard_backup_dir, "/");
+
+	snprintf(command_label, MAX_COMMAND_ARG, "\n-  Performing backup in %s  -", "SLOT4");
+	snprintf(command, MAX_COMMAND_ARG, "%s -b -p %s", NANDROID_BIN, sdcard_backup_dir);
+	snprintf(command_err, MAX_COMMAND_ARG, "\nE:Can't run %s\n(%s)", NANDROID_BIN); 
+        run_script("",
+        	command_label,
+         	command,
+                command_err,
+                "\nError running nandroid backup. Backup not performed.\nAll flash process stopped.",
+		"\n-       Backup complete!       -",
+                "\n-   Backup aborted by user!    -",
+                 false);
+        }
+	ui_print("\n-                              -");
+	ui_print("\n-                              -");
+	return 0;
+}
+
+// drakaz : auto wipe :
+static int exec_wipe() {
+                    ui_print("\n-           WIPE DATA          -");
+                    ui_print("\n-  This will ERASE your data!  -");
+                    ui_print("\n-                              -");
+                    ui_print("\n-         Are you sure ?       -");
+                    ui_print("\n-                              -");
+                    ui_print("\n-     Press HOME to confirm    -");
+                    ui_print("\n-     any other key to abort   -");
+                    ui_print("\n-                              -");
+                    int confirm_wipe = ui_wait_key();
+                    if (confirm_wipe == KEY_DREAM_HOME) {
+                        ui_print("\n-                              -");
+                        ui_print("\n-         WIPE STARTED         -");
+                        erase_root("CACHE:");
+			erase_root("DBDATA:");
+			erase_root("INTERNAL:");
+
+ 		    pid_t pidf = fork();
+                    if (pidf == 0) {
+			char *args[] = { "mount", "-rw", "/data", NULL };
+			execv("/sbin/busybox", args);
+                        fprintf(stderr, "Unable to mount /data. Already mounted ?\n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int fsck_status;
+                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+ 		    pid_t pidf2 = fork();
+                    if (pidf2 == 0) {
+			char *args2[] = {"/system/bin/rm", "-rf", "/data/*", NULL};
+			execv("/system/bin/rm", args2);
+                        fprintf(stderr, "Unable to format /data\n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int fsck_status2;
+                    while (waitpid(pidf2, &fsck_status2, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+		    sync();
+		    pid_t pidf3 = fork();
+                    if (pidf3 == 0) {
+			char *args3[] = {"/system/bin/sync", NULL};
+			execv("/system/bin/sync", args3);
+                        fprintf(stderr, "Unable to sync /data\n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int fsck_status3;
+                    while (waitpid(pidf3, &fsck_status3, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+		    pid_t pidf4 = fork();
+                    if (pidf4 == 0) {
+			char *args4[] = { "umount", "/data", NULL };
+			execv("/sbin/busybox", args4);
+                        fprintf(stderr, "Unable to umount /data. Already mounted ?\n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int fsck_status4;
+                    while (waitpid(pidf4, &fsck_status4, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+		    sync();
+		    return 0;
+		    }
+}
+
+static int
+run_startup_script_silence() {
+    pid_t pid = fork();
+    if (pid == 0) {
+        char *args[] = { STARTUP_BIN, "1>&2", NULL };
+        execv(STARTUP_BIN, args);
+        fprintf(stderr, "\nUnable to execute startup script!\n(%s)", strerror(errno));
+        _exit(-1);
+    }
+    int status;
+    while (waitpid(pid, &status, WNOHANG) == 0) {
+        sleep(1);
+    }
+    if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+        ui_print("\nError while executing startup script!\n");
+	return 1;
+    }
+    return 0;
+}
+
+
 static void
 print_property(const char *key, const char *name, void *cookie)
 {
@@ -1884,7 +2032,8 @@ main(int argc, char **argv)
     int previous_runs = 0;
     const char *send_intent = NULL;
     const char *update_package = NULL;
-    int wipe_data = 0, wipe_cache = 0;
+    const char *update_gapps = NULL;
+    int wipe_data = 0, wipe_cache = 0, wipe_full = 0, nandroid = 0, nreboot = 0, hello = 0, migrate = 0;
 
     int arg;
     while ((arg = getopt_long(argc, argv, "", OPTIONS, NULL)) != -1) {
@@ -1892,8 +2041,14 @@ main(int argc, char **argv)
         case 'p': previous_runs = atoi(optarg); break;
         case 's': send_intent = optarg; break;
         case 'u': update_package = optarg; break;
+        case 'g': update_gapps = optarg; break;
         case 'w': wipe_data = wipe_cache = 1; break;
+        case 'a': wipe_full = 1; break;
         case 'c': wipe_cache = 1; break;
+	case 'n': nandroid = 1; break;
+	case 'r': nreboot = 1; break;
+	case 'h': hello = 1; break;
+	case 'm': migrate = 1; break;
         case '?':
             LOGE("Invalid command argument\n");
             continue;
@@ -1920,13 +2075,37 @@ main(int argc, char **argv)
 
     int status = INSTALL_SUCCESS;
 
-    if (update_package != NULL) {
-        status = install_package(update_package);
-        if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
-    } else if (wipe_data || wipe_cache) {
+    if (hello) {
+	exec_hello();
+    }
+    if (migrate) {
+	if (run_startup_script_silence()) status = INSTALL_ERROR;
+	if (status != INSTALL_SUCCESS) ui_print("Migration aborted.\n");
+    }
+    if (nandroid && (status == INSTALL_SUCCESS)) {
+	if (nandroid && exec_nandroid()) status = INSTALL_ERROR;
+	if (status != INSTALL_SUCCESS) ui_print("Backup aborted.\n");
+    }
+    if ((wipe_data || wipe_cache || wipe_full) && (status == INSTALL_SUCCESS)) {
         if (wipe_data && erase_root("DATA:")) status = INSTALL_ERROR;
         if (wipe_cache && erase_root("CACHE:")) status = INSTALL_ERROR;
+	if (wipe_full && exec_wipe()) status = INSTALL_ERROR;
         if (status != INSTALL_SUCCESS) ui_print("Data wipe failed.\n");
+    }
+    if (update_package != NULL && (status == INSTALL_SUCCESS)) {
+        status = install_package(update_package);
+        if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
+    }
+    if (update_gapps != NULL && (status == INSTALL_SUCCESS)) {
+        status = install_package(update_gapps);
+        if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
+    }
+    if (nreboot && (status == INSTALL_SUCCESS)) {
+	ui_print("\n-                              -");
+	ui_print("\n-                              -");
+	ui_print("\n------ INSTALLATION DONE -------");
+	ui_print("\n-------- REBOOTING NOW ---------");
+	reboot(RB_AUTOBOOT);
     } else {
         status = INSTALL_ERROR;  // No command specified
     }

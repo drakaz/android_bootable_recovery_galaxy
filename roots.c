@@ -394,8 +394,6 @@ format_root_device(const char *root)
 // drakaz : ajout du support du formattage de la partition ext3 data propre au galaxy
 LOGW("Data partition info : FS : \"%s\", Name : \"%s\"\n", info->filesystem, info->partition_name );
 	if ( !strcmp(info->partition_name,"intdata")) {
-		int format_data_galaxy;
-		format_data_galaxy == 0;
    		pid_t pid_format = fork();
 		if (pid_format == 0) {
 			// EXT3 Journalisation
@@ -404,7 +402,6 @@ LOGW("Data partition info : FS : \"%s\", Name : \"%s\"\n", info->filesystem, inf
 			char *args_format[] = { MKE2FS_BIN, "-L", "data", journal_opts, "/dev/block/mmcblk0p1", NULL };
 			execv(MKE2FS_BIN, args_format);
                         fprintf(stderr, "format_root_device: can't format data partition  \"%s\"\n", strerror(errno));
-			format_data_galaxy == 1;
                         _exit(-1);
                     }
 		int format_status;
@@ -412,12 +409,7 @@ LOGW("Data partition info : FS : \"%s\", Name : \"%s\"\n", info->filesystem, inf
                         ui_print(".");
                         sleep(1);
                     }
-		if (format_data_galaxy == 0) {
-			return 0;
-		} else {
-			LOGW("format_root_device: can't format data partition  \"%s\"\n", root);
-			return -1;
-		}
+		return 0;
 	}
 
 //TODO: handle other device types (sdcard, etc.)
