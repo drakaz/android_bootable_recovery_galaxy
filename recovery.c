@@ -908,6 +908,7 @@ prompt_and_wait()
 #define ITEM_FORMAT_EXT3   11
 #define ITEM_FORMAT_EXT4   12
 #define FIX_PERMS	   13
+#define ITEM_ROOTME	   14
 //#define CONVERT_DATA_EXT4  17
 
 
@@ -935,6 +936,7 @@ prompt_and_wait()
                              "Format /data : ext3",
                              "Format /data : ext4",
 			     "Fix packages permissions",
+			     "Root this device",
 //			     "Delete oldest backup",
                              NULL };
 
@@ -1835,6 +1837,20 @@ prompt_and_wait()
                     }
                     if (!ui_text_visible()) return;
                     break;
+
+            case ITEM_ROOTME:
+                {
+			ui_print("\n\n");
+                	run_script("",
+                		"\nTrying to root this device..\n",
+                		"/rootme/rootme.sh",
+                		"\nError while trying to root this device.",
+                		"\nError while trying to root this device.",
+                		"\nOperation complete!",
+                		"\nOperation aborted by user!",
+                		false);
+                        }
+                break;
             }
         }
     }
@@ -2027,7 +2043,7 @@ main(int argc, char **argv)
     ui_init();
     ui_print("Build: ");
     ui_print(prop_value);
-    ui_print("\nBy drakaz\n");
+    ui_print("\nBy drakaz & bukington\n");
     get_args(&argc, &argv);
 
     int previous_runs = 0;
