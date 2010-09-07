@@ -1960,6 +1960,7 @@ static int exec_wipe() {
 		    sync();
 		    return 0;
 		    }
+	return 0;
 }
 
 static int
