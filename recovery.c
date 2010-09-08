@@ -1909,20 +1909,11 @@ static int exec_nandroid() {
 // drakaz : auto wipe :
 static int exec_wipe() {
                     ui_print("\n-           WIPE DATA          -");
-                    ui_print("\n-  This will ERASE your data!  -");
                     ui_print("\n-                              -");
-                    ui_print("\n-         Are you sure ?       -");
                     ui_print("\n-                              -");
-                    ui_print("\n-     Press HOME to confirm    -");
-                    ui_print("\n-     any other key to abort   -");
-                    ui_print("\n-                              -");
-                    int confirm_wipe = ui_wait_key();
-                    if (confirm_wipe == KEY_DREAM_HOME) {
-                        ui_print("\n-                              -");
-                        ui_print("\n-         WIPE STARTED         -");
-                        erase_root("CACHE:");
-			erase_root("DBDATA:");
-			erase_root("INTERNAL:");
+                    erase_root("CACHE:");
+		    erase_root("DBDATA:");
+		    erase_root("INTERNAL:");
 
  		    pid_t pidf = fork();
                     if (pidf == 0) {
@@ -1975,7 +1966,6 @@ static int exec_wipe() {
                     }
 		    sync();
 		    return 0;
-		    }
 	return 0;
 }
 
