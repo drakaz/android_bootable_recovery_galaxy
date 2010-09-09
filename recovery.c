@@ -2112,6 +2112,7 @@ main(int argc, char **argv)
 	ui_print("\n-                              -");
 	ui_print("\n------ INSTALLATION DONE -------");
 	ui_print("\n-------- REBOOTING NOW ---------");
+	finish_recovery(send_intent);
 	reboot(RB_AUTOBOOT);
     } else {
         status = INSTALL_ERROR;  // No command specified
