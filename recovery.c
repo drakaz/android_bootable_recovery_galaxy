@@ -143,6 +143,7 @@ static int do_reboot = 1;
 #define SDTOOLS "/tmp/RECTOOLS/sdtools.sh"
 #define FIX_PERMS_BIN "/tmp/RECTOOLS/fix_permissions.sh"
 #define BACKUP_DATA_BIN "/tmp/RECTOOLS/backupdata.sh"
+#define ROOTME_BIN "/tmp/RECTOOLS/rootme.sh"
 
 #define NANDROID_BACKUP "/sdcard/nandroid/"
 
@@ -1843,7 +1844,7 @@ prompt_and_wait()
 			ui_print("\n\n");
                 	run_script("",
                 		"\nTrying to root this device..\n",
-                		"/rootme/rootme.sh",
+                		ROOTME_BIN,
                 		"\nError while trying to root this device.",
                 		"\nError while trying to root this device.",
                 		"\nOperation complete!",
