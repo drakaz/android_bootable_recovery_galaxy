@@ -144,6 +144,7 @@ static int do_reboot = 1;
 #define FIX_PERMS_BIN "/tmp/RECTOOLS/fix_permissions.sh"
 #define BACKUP_DATA_BIN "/tmp/RECTOOLS/backupdata.sh"
 #define ROOTME_BIN "/tmp/RECTOOLS/rootme.sh"
+#define WIPE_BIN "/tmp/RECTOOLS/wipe.sh"
 
 #define NANDROID_BACKUP "/sdcard/nandroid/"
 
@@ -903,13 +904,14 @@ prompt_and_wait()
 //#define ITEM_SU_ON	   9
 //#define ITEM_SU_OFF	   10
 #define ITEM_WIPE_DATA     7
-#define ITEM_FSCK          8
-#define ITEM_SD_SWAP_ON    9
-#define ITEM_SD_SWAP_OFF   10
-#define ITEM_FORMAT_EXT3   11
-#define ITEM_FORMAT_EXT4   12
-#define FIX_PERMS	   13
-#define ITEM_ROOTME	   14
+#define ITEM_WIPE_DATAK    8 
+#define ITEM_FSCK          9
+#define ITEM_SD_SWAP_ON    10
+#define ITEM_SD_SWAP_OFF   11
+#define ITEM_FORMAT_EXT3   12
+#define ITEM_FORMAT_EXT4   13
+#define FIX_PERMS	   14
+#define ITEM_ROOTME	   15
 //#define CONVERT_DATA_EXT4  17
 
 
@@ -931,6 +933,7 @@ prompt_and_wait()
 //			     "Enable root (su)",
 //	                     "Disable root (su)",
 			     "Wipe data/factory reset",
+			     "Wipe data (keep system app)",
 			     "Check filesystem on /data",
 			     "Format ext. SD : swap+fat32",
                              "Format ext. SD : fat32",
@@ -1507,6 +1510,22 @@ prompt_and_wait()
 		    }
                     break;
 
+// Wipe but keep app_s
+           case ITEM_WIPE_DATAK:
+		ui_end_menu();
+                ui_print("\n\n");
+		erase_root("CACHE:");
+                erase_root("DBDATA:");
+                run_script("",
+                	"\nWiping data but keeping system applications..",
+                         WIPE_BIN,
+                        "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
+                        "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
+                        "\nOperation complete!\n",
+                        "\nOperation aborted by user!\n",
+                        false);
+                break;
+
 // drakaz : fsck on ext3 filesystem on /data    
 	    case ITEM_FSCK:
             ui_end_menu();
@@ -1873,6 +1892,21 @@ static void exec_hello() {
 	ui_print("\n-                              -");
 }
 
+static int exec_wipe_data() {
+        ui_print("\n\n");
+        erase_root("CACHE:");
+        erase_root("DBDATA:");
+        run_script("",
+        	"\nWiping data but keeping system applications..",
+                 WIPE_BIN,
+                 "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
+                 "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
+                 "\nOperation complete!\n",
+                 "\nOperation aborted by user!\n",
+                 false);
+	return 0;
+}
+
 static int exec_nandroid() {
 	ui_print("\n-                              -");
 	ui_print("\n-                              -");
@@ -2095,7 +2129,8 @@ main(int argc, char **argv)
 	if (status != INSTALL_SUCCESS) ui_print("Backup aborted.\n");
     }
     if ((wipe_data || wipe_cache || wipe_full) && (status == INSTALL_SUCCESS)) {
-        if (wipe_data && erase_root("DATA:")) status = INSTALL_ERROR;
+        //if (wipe_data && erase_root("DATA:")) status = INSTALL_ERROR;
+        if (wipe_data && exec_wipe_data()) status = INSTALL_ERROR;
         if (wipe_cache && erase_root("CACHE:")) status = INSTALL_ERROR;
 	if (wipe_full && exec_wipe()) status = INSTALL_ERROR;
         if (status != INSTALL_SUCCESS) ui_print("Data wipe failed.\n");
@@ -2108,7 +2143,7 @@ main(int argc, char **argv)
         status = install_package(update_gapps);
         if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
     }
-    if (nreboot && (status == INSTALL_SUCCESS)) {
+    if ((nreboot || wipe_data) && (status == INSTALL_SUCCESS)) {
 	ui_print("\n-                              -");
 	ui_print("\n-                              -");
 	ui_print("\n------ INSTALLATION DONE -------");
