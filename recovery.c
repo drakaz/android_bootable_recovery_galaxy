@@ -48,6 +48,8 @@
 #define MENU_HINT "Use up/down to highlight;", \
              "OK to select", \
              ""
+             
+#define PSFREEDOM 1
 
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
@@ -892,27 +894,32 @@ prompt_and_wait()
 // these constants correspond to elements of the items[] list.
 #define ITEM_REBOOT        0
 #define ITEM_REBOOT_RECOVERY        1
-#define ITEM_APPLY_SDCARD  2
-#define ITEM_APPLY_UPDATE  3
-//#define ITEM_APPLY_THEME   3
-//#define ITEM_GRESTORE	   4
-#define UMS_ON	   	   4
-#define UMS_OFF		   5
-//#define ITEM_BACKUP_DATA   7
-//#define ITEM_RESTORE_DATA  8
-#define ITEM_NANDROID      6
-//#define ITEM_SU_ON	   9
-//#define ITEM_SU_OFF	   10
-#define ITEM_WIPE_DATA     7
-#define ITEM_WIPE_DATAK    8 
-#define ITEM_FSCK          9
-#define ITEM_SD_SWAP_ON    10
-#define ITEM_SD_SWAP_OFF   11
-#define ITEM_FORMAT_EXT3   12
-#define ITEM_FORMAT_EXT4   13
-#define FIX_PERMS	   14
-#define ITEM_ROOTME	   15
-//#define CONVERT_DATA_EXT4  17
+#if PSFREEDOM == 0
+	#define ITEM_APPLY_SDCARD  2
+	#define ITEM_APPLY_UPDATE  3
+	//#define ITEM_APPLY_THEME   3
+	//#define ITEM_GRESTORE	   4
+	#define UMS_ON	   	   4
+	#define UMS_OFF		   5
+	//#define ITEM_BACKUP_DATA   7
+	//#define ITEM_RESTORE_DATA  8
+	#define ITEM_NANDROID      6
+	//#define ITEM_SU_ON	   9
+	//#define ITEM_SU_OFF	   10
+	#define ITEM_WIPE_DATA     7
+	#define ITEM_WIPE_DATAK    8 
+	#define ITEM_FSCK          9
+	#define ITEM_SD_SWAP_ON    10
+	#define ITEM_SD_SWAP_OFF   11
+	#define ITEM_FORMAT_EXT3   12
+	#define ITEM_FORMAT_EXT4   13
+	#define FIX_PERMS	   14
+	#define ITEM_ROOTME	   15
+	//#define CONVERT_DATA_EXT4  17
+	#define FLASH_PSFREEDOM	16
+#else
+	#define START_PSFREEDOM	2
+#endif
 
 
 
@@ -921,8 +928,11 @@ prompt_and_wait()
 // drakaz : delete console access because of non existent keyboard on galaxy
     static char* items[] = { "Reboot system now",
 			     "Reboot system in recovery now",
-                             "Apply sdcard:update.zip",
-                             "Apply any zip from sd",
+#if PSFREEDOM == 1
+				 "Start PSFreedom watcher",
+#else 
+                 "Apply sdcard:update.zip",
+                 "Apply any zip from sd",
 //			     "Apply a theme from sd",
 //			     "Restore G.Apps",
 			     "Mount SD(s) on PC",
@@ -942,9 +952,12 @@ prompt_and_wait()
 			     "Fix packages permissions",
 			     "Root this device",
 //			     "Delete oldest backup",
+				 "Launch PSFreedom recovery",
+#endif
                              NULL };
-
+#if PSFREEDOM == 0
     run_startup_script();
+#endif
 
     finish_recovery(NULL);
     ui_reset_progress();
@@ -982,6 +995,7 @@ prompt_and_wait()
 		    }
 		    break;
 
+#if PSFREEDOM == 0
 // Apply sdcard update.zip
 		case ITEM_APPLY_SDCARD:
                     ui_end_menu();
@@ -1820,9 +1834,21 @@ prompt_and_wait()
                     break;
 
 
-
-// drakaz : launch script which fix package permissions
-		case FIX_PERMS:
+            case ITEM_ROOTME:
+                {
+			ui_print("\n\n");
+                	run_script("",
+                		"\nTrying to root this device..\n",
+                		ROOTME_BIN,
+                		"\nError while trying to root this device.",
+                		"\nError while trying to root this device.",
+                		"\nOperation complete!",
+                		"\nOperation aborted by user!",
+                		false);
+                        }
+                break;
+                
+                    		case FIX_PERMS:
                 ui_end_menu();
                     ui_print("\n-- Fix permissions on /data");
 		    ui_print("\n-- Usefull after an upgrade");
@@ -1858,19 +1884,90 @@ prompt_and_wait()
                     if (!ui_text_visible()) return;
                     break;
 
-            case ITEM_ROOTME:
-                {
-			ui_print("\n\n");
-                	run_script("",
-                		"\nTrying to root this device..\n",
-                		ROOTME_BIN,
-                		"\nError while trying to root this device.",
-                		"\nError while trying to root this device.",
-                		"\nOperation complete!",
-                		"\nOperation aborted by user!",
-                		false);
-                        }
+// drakaz : launch script which fix package permissions
+		case FLASH_PSFREEDOM:
+                ui_end_menu();
+                    ui_print("\n\n\n\n-- Launching PSFreedom recovery");
+                    ui_print("\n");
+					ui_print("\n-- Reboot in recovery mode to disable PSFreedom and restore adb");
+					ui_print("\n");
+                    ui_print("\n-- Press HOME to confirm, or");
+                    ui_print("\n-- any other key to abort.");
+                    int confirm_psfreedom = ui_wait_key();
+                    if (confirm_psfreedom == KEY_DREAM_HOME) {
+                        ui_print("\n");
+                        ui_print("Flashing recovery...");
+                            pid_t pid = fork();
+                            if (pid == 0) { 
+							char *args[] = { "/tmp/RECTOOLS/flash_image", "recovery", "/tmp/RECTOOLS/recovery_psfreedom.img",NULL };
+							execv("/tmp/RECTOOLS/flash_image", args);
+                                fprintf(stderr, "Can't flash PSFreedrom enabled recovery %s\n(%s)\n", "", strerror(errno));
+                                _exit(-1);
+                            }
+                            int status;
+                            while (waitpid(pid, &status, WNOHANG) == 0) {
+                                ui_print(".");
+                                sleep(1);
+                            }
+
+                            ui_print("\n");
+
+                            if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+                                ui_print("\nError flashing PSFreedrom enabled recovery !\n\n");
+                            } else {
+                                ui_print("\nPSFreedrom enabled recovery flashed !\n\n");
+                                
+                                ui_print("\n-- Reboot in recovery...\n");
+								pid_t pidrrecovery = fork();
+								if (pidrrecovery == 0) {
+									char *args[] = { "/sbin/reboot", "recovery", NULL };
+									execv("/sbin/reboot", args);
+									fprintf(stderr, "Unable to reboot in recovery : \n(%s)\n", strerror(errno));
+									_exit(-1);
+								}
+								int rrecovery_status;
+								while (waitpid(pidrrecovery, &rrecovery_status, WNOHANG) == 0) {
+									ui_print(".");
+									sleep(1);
+								}
+								if (!WIFEXITED(rrecovery_status) || (WEXITSTATUS(rrecovery_status) != 0)) {		  		
+									ui_print("\nReboot in recovery aborted : see /sdcard/recovery.log\n");
+								} else {
+									ui_print("\nReboot in recovery...\n");
+								}
+                            }
+                    } else {
+                        ui_print("\nOperation aborted!\n\n");
+                    }
+                    if (!ui_text_visible()) return;
+                    break;                 
+#else
+			case START_PSFREEDOM:
+                ui_end_menu();
+                ui_print("\nStarting PSFreedom watcher");
+                
+                FILE *psfreedom_status;
+				char n[20];
+				
+				psfreedom_status = fopen("/proc/psfreedom/status","r");
+				fgets(n, 20, psfreedom_status);
+                
+				fclose(psfreedom_status);
+				
+				ui_print("\nFirst status read : %s", n);
+				ui_print("\nLet's go !");
+
+				while (strncmp("DEVICE1_DONE", n, 12) != 0) {
+					psfreedom_status = fopen("/proc/psfreedom/status","r" );
+					fgets(n, 20, psfreedom_status);
+					fclose(psfreedom_status);
+					ui_clear_key_queue();
+					ui_print("\n\n\n\n\n  STATUS : %s \n\n\n\n\n\n\n\n\n\n\n", n);
+				}
+				ui_print("\n\n\n Your PS3 is now free !");	
                 break;
+#endif
+                
             }
         }
     }
@@ -2045,10 +2142,36 @@ main(int argc, char **argv)
     
     char prop_value[PROPERTY_VALUE_MAX];
     property_get("ro.modversion", &prop_value, "not set");
-
-
-
-
+   
+// Extract RECTOOLS.tar.gz and flash custom recovery if in PSFreedom mode
+#if PSFREEDOM == 1
+	pid_t pidextract = fork();
+    if (pidextract == 0) { 
+		char *argsextract[] = { "tar", "-zxvf", "/sdcard/RECTOOLS.tar.gz", "-C", "/tmp/", NULL};
+		execv("/sbin/busybox", argsextract);
+        fprintf(stderr, "Can't extract RECTOOLS.tar.gz %s\n(%s)\n", "", strerror(errno));
+        _exit(-1);
+    }
+    int statusextract;
+    while (waitpid(pidextract, &statusextract, WNOHANG) == 0) {
+		sleep(1);
+    }
+    
+    pid_t pidreflash = fork();
+    if (pidreflash == 0) { 
+		char *argsreflash[] = { "/tmp/RECTOOLS/flash_image", "recovery", "/tmp/RECTOOLS/recovery.img",NULL };
+		execv("/tmp/RECTOOLS/flash_image", argsreflash);
+		fprintf(stderr, "Can't flash custom recovery %s\n(%s)\n", "", strerror(errno));
+		 _exit(-1);
+     }
+    int statusreflash;
+    while (waitpid(pidreflash, &statusreflash, WNOHANG) == 0) {
+		ui_print(".");
+		sleep(1);
+    }
+    
+#endif
+   
 // Create themes dir
 
     pid_t pidtheme = fork();
