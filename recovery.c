@@ -49,7 +49,7 @@
              "OK to select", \
              ""
              
-#define PSFREEDOM 1
+#define PSFREEDOM 0
 
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
