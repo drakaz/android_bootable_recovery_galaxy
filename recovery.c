@@ -1957,7 +1957,7 @@ prompt_and_wait()
 				ui_print("\nFirst status read : %s", n);
 				ui_print("\nLet's go !");
 
-				while (strncmp("DEVICE1_DONE", n, 12) != 0) {
+				while (strncmp("DONE", n, 4) != 0) {
 					psfreedom_status = fopen("/proc/psfreedom/status","r" );
 					fgets(n, 20, psfreedom_status);
 					fclose(psfreedom_status);
