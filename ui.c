@@ -24,6 +24,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
+
 
 #include "common.h"
 #include "minui/minui.h"
@@ -561,6 +563,30 @@ int ui_wait_key()
     pthread_mutex_lock(&key_queue_mutex);
     while (key_queue_len == 0) {
         pthread_cond_wait(&key_queue_cond, &key_queue_mutex);
+    }
+
+    int key = key_queue[0];
+    memcpy(&key_queue[0], &key_queue[1], sizeof(int) * --key_queue_len);
+    pthread_mutex_unlock(&key_queue_mutex);
+    return key;
+}
+
+int ui_wait_key_to(int ms)
+{
+    struct timespec to;    
+    if (ms < 0)
+        ms = 0;
+    clock_gettime(CLOCK_REALTIME, &to);    
+    to.tv_nsec += (ms * 1000000);
+    to.tv_sec +=  (to.tv_nsec / 1000000000);
+    to.tv_nsec = to.tv_nsec  % 1000000000;
+        
+    pthread_mutex_lock(&key_queue_mutex);
+    while (key_queue_len == 0) {
+        if (pthread_cond_timedwait(&key_queue_cond, &key_queue_mutex, &to) == ETIMEDOUT){
+            pthread_mutex_unlock(&key_queue_mutex);
+            return -1;
+        }
     }
 
     int key = key_queue[0];
