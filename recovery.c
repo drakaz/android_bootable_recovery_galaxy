@@ -49,7 +49,7 @@
              "OK to select", \
              ""
              
-#define PSFREEDOM 0
+#define PSFREEDOM 1
 
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
@@ -512,6 +512,75 @@ get_menu_selection(char** headers, char** items, int menu_only) {
     return chosen_item;
 }
 
+
+#if PSFREEDOM == 1
+#define PSFREEDOM_PATH "/sdcard/psfreedom/"
+#define PSFREEDOM_SELECTED_PAYLOAD PSFREEDOM_PATH "selected_payload.txt"
+#define PSFREEDOM_MAX_PAYLOADS 32 
+static void show_payload_menu()
+{
+	static char* headers[] = {  "Choose PSFreedom Payload",
+					"",
+					MENU_HINT,
+					NULL
+	};
+	static char* list[PSFREEDOM_MAX_PAYLOADS+2];
+	struct dirent* dir_ent;
+	DIR*   dir;
+	int len, i;
+	int file_nb = 0;
+	int exit_menu = 0;
+	
+	memset(list, 0, sizeof(list));
+	list[0] =  "<default>";	
+
+	/* Create a list of the available payloads (files with .bin extension in PSFREEDOM_PATH folder) */
+	if ((dir = opendir (PSFREEDOM_PATH)) != NULL){
+		while ( (dir_ent = readdir ( dir )) != NULL ) {
+			len = strlen(dir_ent->d_name);
+			if ((len > 4) && 
+				(strncmp(&dir_ent->d_name[len-4],".bin",4) == 0)){
+				if (file_nb < PSFREEDOM_MAX_PAYLOADS) {
+					list[file_nb + 1] = strdup(dir_ent->d_name);
+					file_nb++;
+				}
+			}
+		}
+	}
+	
+	while (!exit_menu) {
+		int chosen_item = get_menu_selection(headers, list, 0);
+		switch (chosen_item) {
+			case 0 :
+				/* default paylaod */
+				unlink(PSFREEDOM_SELECTED_PAYLOAD);
+				exit_menu = 1;
+				break;
+			case GO_BACK:
+				exit_menu = 1;
+				break;
+			default :
+				if ((chosen_item >= 1) &&
+					(chosen_item <= file_nb)){
+					int fd;
+					fd = open(PSFREEDOM_SELECTED_PAYLOAD,O_CREAT|O_WRONLY|O_TRUNC);
+					write(fd, PSFREEDOM_PATH, strlen(PSFREEDOM_PATH));
+					write(fd, list[chosen_item], strlen(list[chosen_item]));
+					close(fd);
+					exit_menu = 1;	
+				}
+				break;
+		}
+	}
+	
+	/* Release dynamically allocated strings */
+	for (i = 1; i <= file_nb; i++){
+		free(list[i]);
+	}
+	return;
+}
+#endif
+
 // Nandroid slot support from bukington
 static int choose_nandroid_slot()
 {
@@ -919,6 +988,7 @@ prompt_and_wait()
 	#define FLASH_PSFREEDOM	16
 #else
 	#define START_PSFREEDOM	2
+	#define PAYLOAD_PSFREEDOM 3
 #endif
 
 
@@ -929,7 +999,8 @@ prompt_and_wait()
     static char* items[] = { "Reboot system now",
 			     "Reboot system in recovery now",
 #if PSFREEDOM == 1
-				 "Start PSFreedom watcher",
+				 "Start PSFreedom",
+				 "Select PSFreedom payload",
 #else 
                  "Apply sdcard:update.zip",
                  "Apply any zip from sd",
@@ -1943,29 +2014,67 @@ prompt_and_wait()
                     break;                 
 #else
 			case START_PSFREEDOM:
+				
                 ui_end_menu();
-                ui_print("\nStarting PSFreedom watcher");
-                
+                ui_print("\nStarting PSFreedom");             
                 FILE *psfreedom_status;
 				char n[20];
+				int fd;
+				int status;				
+				pid_t pidshell;
+				char * payload_name = NULL;
+				char payload_info[33];
+								
+				/* Load non default psfreedom payload if selected */
+				fd = open(PSFREEDOM_SELECTED_PAYLOAD, O_RDONLY);
+				if (fd > 0){
+					payload_name = calloc(PATH_MAX, 1);
+					read(fd, payload_name, PATH_MAX-1);
+					close(fd);
+					ui_print("\nLoading payload");             
+					pidshell = fork();
+					if (pidshell == 0) {						
+						char *cp_args[] = { "cp", payload_name, "/proc/psfreedom/payload",  NULL };	
+						execv("/sbin/busybox", cp_args);
+					}
+					while (waitpid(pidshell, &status, WNOHANG) == 0) {
+						ui_print(".");
+						sleep(1);
+					}
+				}
 				
 				psfreedom_status = fopen("/proc/psfreedom/status","r");
 				fgets(n, 20, psfreedom_status);
-                
 				fclose(psfreedom_status);
-				
 				ui_print("\nFirst status read : %s", n);
 				ui_print("\nLet's go !");
-
+				
+				/* Payload info is the displayable info about the selected payload */
+				if (payload_name)
+					snprintf(payload_info, sizeof(payload_info),"(Payload : %s)", basename(payload_name));
+				else
+					snprintf(payload_info, sizeof(payload_info),"(Payload : <default>)");
+				payload_info[sizeof(payload_info)-2]=')';
+				payload_info[sizeof(payload_info)-1]=0;
+				
 				while (strncmp("DONE", n, 4) != 0) {
 					psfreedom_status = fopen("/proc/psfreedom/status","r" );
 					fgets(n, 20, psfreedom_status);
 					fclose(psfreedom_status);
-					ui_clear_key_queue();
-					ui_print("\n\n\n\n\n  STATUS : %s \n\n\n\n\n\n\n\n\n\n\n", n);
+					if (ui_wait_key_to(100) == KEY_BACK){						
+						break;
+					}
+					ui_print("\n\n\n\n\n  STATUS : %s\n%s\n\n\n\n\n\n\n\n\n\n", n, payload_info);
 				}
-				ui_print("\n\n\n Your PS3 is now free !");	
+				if (strncmp("DONE", n, 4) == 0) 
+					ui_print("\n\n\n Your PS3 is now free !");
+								
+				free(payload_name);
                 break;
+				
+			case PAYLOAD_PSFREEDOM: 
+				show_payload_menu();
+				break;
 #endif
                 
             }
