@@ -954,7 +954,7 @@ static void
 prompt_and_wait()
 {
 // drakaz : new headers
-    static char* headers[] = { "Android system recovery " EXPAND(RECOVERY_API_VERSION),
+    static char* headers[] = { "Android system recovery " EXPAND(RECOVERY_VERSION),
 			"     --- Galaxy Version ---",
                         "",
                         NULL };
