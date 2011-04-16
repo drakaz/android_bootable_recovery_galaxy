@@ -33,6 +33,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS := $(amend_cflags) -g -O0
 LOCAL_MODULE := amend
+LOCAL_MODULE_TAGS := optional
 LOCAL_YACCFLAGS := -v
 
 include $(BUILD_HOST_EXECUTABLE)
