@@ -1500,6 +1500,9 @@ prompt_and_wait()
       case ITEM_WIPE_DATA:
             ui_end_menu();
                     ui_print("\n-- This will ERASE your data!");
+		    ui_print("\n-- This will ERASE your system app!");
+		    ui_print("\n-- Device will not boot until you");
+		    ui_print("\n-- flash a new rom!");
                     ui_print("\n-- Press HOME to confirm, or");
                     ui_print("\n-- any other key to abort..");
                     int confirm_wipe = ui_wait_key();
@@ -1598,17 +1601,24 @@ prompt_and_wait()
 // Wipe but keep app_s
            case ITEM_WIPE_DATAK:
 		ui_end_menu();
-                ui_print("\n\n");
-		erase_root("CACHE:");
-                erase_root("DBDATA:");
-                run_script("",
-                	"\nWiping data but keeping system applications..",
-                         WIPE_BIN,
-                        "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
-                        "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
-                        "\nOperation complete!\n",
-                        "\nOperation aborted by user!\n",
-                        false);
+		ui_print("\n-- This will ERASE your data!");
+		ui_print("\n-- This will KEEP your system app!");
+                ui_print("\n-- Press HOME to confirm, or");
+                ui_print("\n-- any other key to abort..");
+                int confirm_wiped = ui_wait_key();
+		if (confirm_wiped == KEY_DREAM_HOME) {
+		        ui_print("\n\n");
+			erase_root("CACHE:");
+		        erase_root("DBDATA:");
+		        run_script("",
+		        	"\nWiping data but keeping system applications..",
+		                 WIPE_BIN,
+		                "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
+		                "\nError while wiping data. Please wipe data/factory reset and reinstall a rom.\n",
+		                "\nOperation complete!\n",
+		                "\nOperation aborted by user!\n",
+		                false);
+		}
                 break;
 
 // drakaz : fsck on ext3 filesystem on /data    
