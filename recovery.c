@@ -1846,6 +1846,22 @@ prompt_and_wait()
                     if (confirm_ext3 == KEY_DREAM_HOME) {
                             ui_print("\n");
                             ui_print("Formatting /data in ext3..");
+
+ 			    // Umount /data partition
+	 		    pid_t pidfp = fork();
+		            if (pidfp == 0) {
+				char *args[] = { "/sbin/busybox", "umount", "/data", NULL };
+				execv("/sbin/busybox", args);
+		                fprintf(stderr, "Unable to umount /data\n(%s)\n", strerror(errno));
+		                _exit(-1);
+		            }
+		            int fsck_statusp;
+		            while (waitpid(pidfp, &fsck_statusp, WNOHANG) == 0) {
+		                ui_print(".");
+		                sleep(1);
+		            }
+
+
                             pid_t pid3 = fork();
                             if (pid3 == 0) {
                                 char *args3[] = {"/tmp/RECTOOLS/mke2fs", "-t", "ext3", "/dev/block/mmcblk0p1", NULL };
@@ -1867,6 +1883,21 @@ prompt_and_wait()
                             } else {
                                 ui_print("\n/data is now formatted in ext3 !\n\n");
                             }
+
+			    // Remount /data partition
+	 		    pid_t pidfa = fork();
+		            if (pidfa == 0) {
+				char *args[] = { "/sbin/busybox", "mount", "-rw", "/data", NULL };
+				execv("/sbin/busybox", args);
+		                fprintf(stderr, "Unable to umount /data\n(%s)\n", strerror(errno));
+		                _exit(-1);
+		            }
+		            int fsck_statusa;
+		            while (waitpid(pidfa, &fsck_statusa, WNOHANG) == 0) {
+		                ui_print(".");
+		                sleep(1);
+		            }
+
                     } else {
                         ui_print("\nOperation complete!\n\n");
                     }
@@ -1882,8 +1913,24 @@ prompt_and_wait()
                     ui_print("\n-- any other key to abort.");
                     int confirm_ext4 = ui_wait_key();
                     if (confirm_ext4 == KEY_DREAM_HOME) {
-                            ui_print("\n");
+
+                      	    ui_print("\n");
                             ui_print("Formatting /data in ext4..");
+
+			    // Umount /data partition
+	 		    pid_t pidfp = fork();
+		            if (pidfp == 0) {
+				char *args[] = { "/sbin/busybox", "umount", "/data", NULL };
+				execv("/sbin/busybox", args);
+		                fprintf(stderr, "Unable to umount /data\n(%s)\n", strerror(errno));
+		                _exit(-1);
+		            }
+		            int fsck_statusp;
+		            while (waitpid(pidfp, &fsck_statusp, WNOHANG) == 0) {
+		                ui_print(".");
+		                sleep(1);
+		            }
+
                             pid_t pid3 = fork();
                             if (pid3 == 0) {
                                 char *args3[] = {"/tmp/RECTOOLS/mke2fs", "-t", "ext4", "/dev/block/mmcblk0p1", NULL };
@@ -1905,6 +1952,22 @@ prompt_and_wait()
                             } else {
                                 ui_print("\n/data is now formatted in ext4 !\n\n");
                             }
+
+		
+			    // Remount /data partition
+	 		    pid_t pidfa = fork();
+		            if (pidfa == 0) {
+				char *args[] = { "/sbin/busybox", "mount", "-rw", "/data", NULL };
+				execv("/sbin/busybox", args);
+		                fprintf(stderr, "Unable to umount /data\n(%s)\n", strerror(errno));
+		                _exit(-1);
+		            }
+		            int fsck_statusa;
+		            while (waitpid(pidfa, &fsck_statusa, WNOHANG) == 0) {
+		                ui_print(".");
+		                sleep(1);
+		            }
+
                     } else {
                         ui_print("\nOperation complete!\n\n");
                     }
