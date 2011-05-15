@@ -1511,6 +1511,19 @@ prompt_and_wait()
                         erase_root("CACHE:");
 			erase_root("DBDATA:");
 // drakaz : first wipe galaxy internal data with erase_root
+// umount /data partition
+ 		    pid_t pidf = fork();
+                    if (pidf == 0) {
+			char *args[] = { "umount", "/data", NULL };
+			execv("/sbin/busybox", args);
+                        fprintf(stderr, "Unable to umount /data.\n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int fsck_status;
+                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
 			erase_root("INTERNAL:");
 			ui_print("\nWiping internal data...\n");
 
@@ -1518,15 +1531,15 @@ prompt_and_wait()
 // Galaxy nand are capricious
 
 // Mount /data partition
- 		    pid_t pidf = fork();
-                    if (pidf == 0) {
+ 		    pid_t pidf6 = fork();
+                    if (pidf6 == 0) {
 			char *args[] = { "mount", "-rw", "/data", NULL };
 			execv("/sbin/busybox", args);
                         fprintf(stderr, "Unable to mount /data. Already mounted ?\n(%s)\n", strerror(errno));
                         _exit(-1);
                     }
-                    int fsck_status;
-                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
+                    int fsck_status6;
+                    while (waitpid(pidf6, &fsck_status6, WNOHANG) == 0) {
                         ui_print(".");
                         sleep(1);
                     }
@@ -1550,7 +1563,7 @@ prompt_and_wait()
 		    pid_t pidf3 = fork();
                     if (pidf3 == 0) {
 			char *args3[] = {"sync", NULL};
-			execv("sync", args3);
+			execv("/sbin/busybox", args3);
                         fprintf(stderr, "Unable to sync /data\n(%s)\n", strerror(errno));
                         _exit(-1);
                     }
@@ -1558,23 +1571,7 @@ prompt_and_wait()
                     while (waitpid(pidf3, &fsck_status3, WNOHANG) == 0) {
                         ui_print(".");
                         sleep(1);
-                    }
-
-// Umount data partition
-
-		    pid_t pidf4 = fork();
-                    if (pidf4 == 0) {
-			char *args4[] = { "umount", "/data", NULL };
-			execv("/sbin/busybox", args4);
-                        fprintf(stderr, "Unable to umount /data. Already mounted ?\n(%s)\n", strerror(errno));
-                        _exit(-1);
-                    }
-                    int fsck_status4;
-                    while (waitpid(pidf4, &fsck_status4, WNOHANG) == 0) {
-                        ui_print(".");
-                        sleep(1);
-                    }
-		 
+                    }	 
 
 		    sync();
 		    ui_print("\nData wipe complete, rebooting in recovery mode...\n");
