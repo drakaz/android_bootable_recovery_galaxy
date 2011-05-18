@@ -2226,18 +2226,6 @@ static int exec_wipe() {
 		    erase_root("DBDATA:");
 		    erase_root("INTERNAL:");
 
- 		    pid_t pidf = fork();
-                    if (pidf == 0) {
-			char *args[] = { "mount", "-rw", "/data", NULL };
-			execv("/sbin/busybox", args);
-                        fprintf(stderr, "Unable to mount /data. Already mounted ?\n(%s)\n", strerror(errno));
-                        _exit(-1);
-                    }
-                    int fsck_status;
-                    while (waitpid(pidf, &fsck_status, WNOHANG) == 0) {
-                        ui_print(".");
-                        sleep(1);
-                    }
  		    pid_t pidf2 = fork();
                     if (pidf2 == 0) {
 			char *args2[] = {"/system/bin/rm", "-rf", "/data/*", NULL};
@@ -2260,18 +2248,6 @@ static int exec_wipe() {
                     }
                     int fsck_status3;
                     while (waitpid(pidf3, &fsck_status3, WNOHANG) == 0) {
-                        ui_print(".");
-                        sleep(1);
-                    }
-		    pid_t pidf4 = fork();
-                    if (pidf4 == 0) {
-			char *args4[] = { "umount", "/data", NULL };
-			execv("/sbin/busybox", args4);
-                        fprintf(stderr, "Unable to umount /data. Already mounted ?\n(%s)\n", strerror(errno));
-                        _exit(-1);
-                    }
-                    int fsck_status4;
-                    while (waitpid(pidf4, &fsck_status4, WNOHANG) == 0) {
                         ui_print(".");
                         sleep(1);
                     }
