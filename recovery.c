@@ -2226,6 +2226,19 @@ static int exec_wipe() {
 		    erase_root("DBDATA:");
 		    erase_root("INTERNAL:");
 
+ 		    pid_t pidf1 = fork();
+                    if (pidf1 == 0) {
+			char *args[] = { "mount", "/data", NULL };
+			execv("/sbin/busybox", args);
+                        fprintf(stderr, "Unable to mount /data. Already mounted ?\n(%s)\n", strerror(errno));
+                        _exit(-1);
+                    }
+                    int fsck_status1;
+                    while (waitpid(pidf1, &fsck_status1, WNOHANG) == 0) {
+                        ui_print(".");
+                        sleep(1);
+                    }
+
  		    pid_t pidf2 = fork();
                     if (pidf2 == 0) {
 			char *args2[] = {"/system/bin/rm", "-rf", "/data/*", NULL};
